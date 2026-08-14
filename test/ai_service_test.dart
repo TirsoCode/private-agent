@@ -25,4 +25,38 @@ void main() {
     expect(AiService.nvidiaDefaultModel, 'z-ai/glm-5.2');
     expect(AiService.nvidiaFreeChatModels.first, 'z-ai/glm-5.2');
   });
+
+  group('parseAction', () {
+    final ai = AiService();
+
+    test('parses a plain JSON action', () {
+      final action = ai.parseAction(
+        '{"action": "execute_task", "params": {"goal": "sube 50 copas"}, "response": "ok"}',
+      );
+      expect(action, isNotNull);
+      expect(action!.action, 'execute_task');
+      expect(action.params['goal'], 'sube 50 copas');
+    });
+
+    test('parses JSON wrapped in code fences', () {
+      final action = ai.parseAction(
+        '```\n{"action": "open_app", "params": {"app_name": "Brawl Stars"}, "response": "Opening"}\n```',
+      );
+      expect(action, isNotNull);
+      expect(action!.action, 'open_app');
+      expect(action.params['app_name'], 'Brawl Stars');
+    });
+
+    test('recovers a truncated JSON missing its closing brace', () {
+      final action = ai.parseAction(
+        '{"action": "set_volume", "params": {"level": 50}, "response": "ok"',
+      );
+      expect(action, isNotNull);
+      expect(action!.action, 'set_volume');
+    });
+
+    test('returns null for plain text conversation', () {
+      expect(ai.parseAction('Sure, here is the answer for you.'), isNull);
+    });
+  });
 }

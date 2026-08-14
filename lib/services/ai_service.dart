@@ -51,7 +51,7 @@ class AiService {
   String? _apiKey;
   String _baseUrl = _defaultBaseUrl;
   String _model = _defaultModel;
-  int _maxSteps = 15;
+  int _maxSteps = 200;
   bool _disableMaxSteps = false;
   double _temperature = 1.0;
   int _maxTokens = 1024;
@@ -84,6 +84,8 @@ MULTI-STEP TASK (for anything that requires more than one action):
 CRITICAL RULES:
 1. If the user request contains "and" or involves MULTIPLE steps (open + search, open + send, open + find, etc.), you MUST use execute_task. NEVER use open_app for these.
 2. execute_task handles everything: opening apps, finding elements, clicking, typing, scrolling.
+3. Commands may come in ANY language (Spanish, English, etc.). Interpret the intent, not the language.
+4. Gaming goals such as "juega al brawl stars y gana 50 copas" or "sube 50 copas con el brawler crow" are LONG multi-step tasks: ALWAYS use execute_task with the full goal.
 
 Examples of when to use execute_task:
 - "Create a new alarm for 7 AM" → execute_task with goal "Create a new alarm for 7 AM"
@@ -91,6 +93,8 @@ Examples of when to use execute_task:
 - "Open WhatsApp and send hello to John" → execute_task
 - "Open Settings and turn on WiFi" → execute_task
 - "Search for restaurants on Google Maps" → execute_task
+- "Juega al brawl stars y gana 50 copas" → execute_task with goal "Juega al brawl stars y gana 50 copas"
+- "Sube 50 copas con el brawler crow" → execute_task with goal "Sube 50 copas con el brawler crow"
 
 Examples of when to use open_app:
 - "Open YouTube" → open_app (just opening, no further action)
@@ -110,7 +114,7 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
     _apiKey = prefs.getString('api_key');
     _baseUrl = prefs.getString('api_base_url') ?? _defaultBaseUrl;
     _model = prefs.getString('api_model') ?? _defaultModel;
-    _maxSteps = prefs.getInt('api_max_steps') ?? 15;
+    _maxSteps = prefs.getInt('api_max_steps') ?? 200;
     _disableMaxSteps = prefs.getBool('api_disable_max_steps') ?? false;
     _temperature = prefs.getDouble('api_temperature') ?? 1.0;
     _maxTokens = prefs.getInt('api_max_tokens') ?? 1024;
@@ -177,7 +181,9 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
   String get baseUrl => _baseUrl;
   String get model => _model;
   String get apiKey => _apiKey ?? '';
-  int get maxSteps => _disableMaxSteps ? 999 : _maxSteps;
+  // When "disable max steps" is on there is effectively no limit, so the agent
+  // can run long goals (e.g. grinding trophies) without being cut off.
+  int get maxSteps => _disableMaxSteps ? 100000 : _maxSteps;
   int get rawMaxSteps => _maxSteps; // For the slider UI
   bool get disableMaxSteps => _disableMaxSteps;
   double get temperature => _temperature;

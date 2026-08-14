@@ -37,8 +37,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _isLoading = false;
   bool _isListening = false;
 
-  // Custom switch state: 'chat' or 'agent'
-  String _mode = 'chat';
+  // Custom switch state: 'chat' or 'agent'. Agent is the default so device
+  // commands work out of the box without switching modes.
+  String _mode = 'agent';
 
   // Chat Session state tracking
   String _sessionId = DateTime.now().millisecondsSinceEpoch.toString();

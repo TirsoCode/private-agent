@@ -9,6 +9,7 @@ import 'task_history_logger.dart';
 import 'shizuku_service.dart';
 import 'skill_memory_service.dart';
 import 'recovery_engine.dart';
+import 'navigation_shortcuts.dart';
 import '../models/saved_skill.dart';
 
 /// Executes multi-step UI automation tasks using LLM-guided screen reading.
@@ -81,12 +82,20 @@ Rules:
 - If you need to click something, prefer using `click_text`. If the element does not have text, use `click_at` with the coordinates provided in the text dump.
 - When typing in a search box, you MUST click it first, wait a step, and THEN type.
 - After typing a search query, use `press_enter` once. If the screen does not change, click the exact visible suggestion text. Do not repeat the same submit action more than twice.
-- Never scroll or swipe more than three times in a row. After three scrolls, choose the best visible result or take a different action instead of continuing to browse indefinitely.
 - Set is_complete=true ONLY when the task is fully done.
-- If you need to find something by scrolling, scroll and then check the screen again.
-- If you need to open an app (like Wikipedia, Spotify, etc.) and you cannot find it after a couple of scrolls, ASSUME it is not installed. Immediately open Chrome or Google to search for the info on the web instead.
-- If stuck after 3 attempts, set is_complete=true and explain in reasoning.
+- If you need to find something, scroll as many times as needed and check the screen again after each scroll.
+- If you cannot find an app installed, you may search for it in the app drawer, use the search bar, or install it from the Play Store if the task requires it. Do NOT give up early.
 - Keep reasoning very brief (1 sentence)
+
+GAME / LONG-TASK RULES (VERY IMPORTANT):
+- This may be a GAME (for example Brawl Stars). Game screens often have few text labels: rely on the center coordinates from the dump and use `click_at` to tap in-game buttons.
+- The user may ask you to WIN/RAISE trophies with a specific brawler (e.g. "sube 50 copas con el brawler crow"). Before starting a match, on the brawler selection screen, tap the brawler named in the task (e.g. "Crow"). After every match you must select that same brawler again before starting the next one.
+- These are LONG goals that can take hundreds of steps. You MUST keep playing match after match and keep checking the trophy counter after each match. Do NOT declare done until the target number of trophies is actually reached.
+- During an active match, tap the attack button (usually the large round button at the bottom-right of the screen) repeatedly to fight. Moving the joystick is optional; keep attacking.
+- When the match ends, tap the continue / next / "recompensa" button to return to the lobby, then start the next match.
+- If a screen does not change, tap the most likely button coordinate or wait, then try again.
+- Do not give up: if you are stuck, try a completely different button or coordinate. Sticking is temporary; persistence wins.
+- Only set is_complete=true when the goal (e.g. the trophy target) is truly achieved.
 ''';
 
   /// Extract JSON safely even if wrapped in markdown or conversational text
@@ -163,7 +172,7 @@ Rules:
     }
 
     // Smart pre-launch shortcuts: execute common sequences without LLM
-    final shortcut = _getNavigationShortcut(userGoal);
+    final shortcut = getNavigationShortcut(userGoal);
     String lastAction = '';
     int sameActionCount = 0;
     int consecutiveFailures = 0;
@@ -182,11 +191,11 @@ Rules:
           final appName = step.params['app_name'] as String? ?? '';
           final res = await _appLauncher.openApp(appName);
           success = res.startsWith('Opened');
-          await Future.delayed(const Duration(milliseconds: 3000));
+          await Future.delayed(const Duration(milliseconds: 2000));
         } else if (step.action == 'click_text') {
           final text = step.params['text'] as String? ?? '';
           success = await _screenService.clickByText(text);
-          await Future.delayed(const Duration(milliseconds: 1500));
+          await Future.delayed(const Duration(milliseconds: 600));
         }
 
         if (success) {
@@ -203,7 +212,7 @@ Rules:
       if (currentPkg == 'com.orailnoor.privateagent') {
         _report('Moving to background...');
         await _screenService.pressHome();
-        await Future.delayed(const Duration(milliseconds: 1500));
+        await Future.delayed(const Duration(milliseconds: 700));
       }
     }
 
@@ -228,16 +237,16 @@ Rules:
       }
 
       // Adaptive delay: give Android apps time to transition screens, load data, or open keyboards
-      int delay = 1200; // Default 1.2s delay for most actions
+      int delay = 350; // Default 350ms delay for most actions
       if (lastAction == 'open_app') {
-        delay = 3000; // Apps need ~3 seconds to fully cold-start and render
+        delay = 2000; // Apps need ~2 seconds to fully cold-start and render
       } else if (lastAction == 'type_text') {
         delay =
-            2000; // Typing involves keyboards and often triggers heavy network requests (search)
+            600; // Typing involves keyboards and often triggers heavy network requests (search)
       } else if (lastAction == 'click_text' || lastAction == 'click_at') {
-        delay = 1500; // Clicking usually triggers a screen transition
+        delay = 450; // Clicking usually triggers a screen transition
       } else if (lastAction == 'scroll') {
-        delay = 1000; // Scrolling is relatively fast
+        delay = 300; // Scrolling is relatively fast
       }
       await Future.delayed(Duration(milliseconds: delay));
 
@@ -435,8 +444,8 @@ Step ${step + 1}/${_aiService.maxSteps}. Look at the text dump and coordinates. 
 
       sameActionCount = action == lastAction ? sameActionCount + 1 : 1;
       final repeatLimit = action == 'press_enter'
-          ? 2
-          : (action == 'scroll' || action == 'swipe' ? 3 : 1000);
+          ? 3
+          : (action == 'scroll' || action == 'swipe' ? 20 : 1000);
       if (sameActionCount > repeatLimit) {
         final blockedResult =
             'Blocked repeated $action action. Use a different action on the visible screen.';
@@ -551,8 +560,8 @@ Step ${step + 1}/${_aiService.maxSteps}. Look at the text dump and coordinates. 
           lastFailedAction = action;
         }
 
-        // If stuck for 5+ consecutive failures, give up on this task
-        if (consecutiveFailures >= 5) {
+        // If stuck for 12+ consecutive failures, give up on this task
+        if (consecutiveFailures >= 12) {
           results.add(
             'Agent is stuck. Stopping task after $consecutiveFailures consecutive failures.',
           );
@@ -577,7 +586,7 @@ Step ${step + 1}/${_aiService.maxSteps}. Look at the text dump and coordinates. 
         _report('Recovering: ${recovery.description}');
 
         if (recovery.action == 'wait') {
-          await Future.delayed(const Duration(seconds: 2));
+          await Future.delayed(const Duration(milliseconds: 1000));
         } else if (recovery.action == 'press_back') {
           await _screenService.pressBack();
         } else if (recovery.action == 'scroll') {
@@ -710,15 +719,15 @@ Step ${step + 1}/${_aiService.maxSteps}. Look at the text dump and coordinates. 
       _report('Replaying step ${i + 1}/${skill.steps.length}: ${step.action}');
 
       // Delay before executing each step
-      int delay = 1200;
+      int delay = 350;
       if (step.action == 'open_app')
-        delay = 3000;
-      else if (step.action == 'type_text')
         delay = 2000;
+      else if (step.action == 'type_text')
+        delay = 600;
       else if (step.action == 'click_text' || step.action == 'click_at')
-        delay = 1500;
+        delay = 450;
       else if (step.action == 'scroll')
-        delay = 1000;
+        delay = 300;
 
       await Future.delayed(Duration(milliseconds: delay));
 
@@ -780,7 +789,7 @@ Step ${step + 1}/${_aiService.maxSteps}. Look at the text dump and coordinates. 
           success = actionResult.startsWith('Opened');
           break;
         case 'wait':
-          await Future.delayed(const Duration(seconds: 1));
+          await Future.delayed(const Duration(milliseconds: 600));
           actionResult = 'Waited';
           success = true;
           break;
@@ -809,72 +818,6 @@ Step ${step + 1}/${_aiService.maxSteps}. Look at the text dump and coordinates. 
 
   /// Returns predefined navigation steps for common tasks
   List<ActionStep>? _getNavigationShortcut(String goal) {
-    final lower = goal.toLowerCase();
-
-    if (lower.contains('dark mode') || lower.contains('dark theme')) {
-      return [
-        ActionStep(action: 'open_app', params: {'app_name': 'Settings'}),
-        ActionStep(action: 'click_text', params: {'text': 'Display'}),
-      ];
-    }
-    if (lower.contains('wifi') || lower.contains('wi-fi')) {
-      return [
-        ActionStep(action: 'open_app', params: {'app_name': 'Settings'}),
-        ActionStep(
-          action: 'click_text',
-          params: {'text': 'Network & internet'},
-        ),
-      ];
-    }
-    if (lower.contains('bluetooth')) {
-      return [
-        ActionStep(action: 'open_app', params: {'app_name': 'Settings'}),
-        ActionStep(action: 'click_text', params: {'text': 'Connected devices'}),
-      ];
-    }
-
-    final appPatterns = <String, List<String>>{
-      'Settings': ['settings', 'brightness', 'display', 'notification'],
-      'Play Store': [
-        'play store',
-        'playstore',
-        'download',
-        'install app',
-        'google play',
-      ],
-      'YouTube': ['youtube'],
-      'WhatsApp': ['whatsapp'],
-      'Chrome': ['chrome', 'browse', 'search google'],
-      'Camera': ['camera', 'take a photo', 'take photo', 'take a picture'],
-      'Gallery': ['gallery', 'photos'],
-      'Messages': ['message', 'sms', 'text to'],
-      'Phone': ['call', 'dial'],
-      'Gmail': ['gmail', 'email'],
-      'Maps': ['maps', 'navigate to', 'directions'],
-      'Clock': ['alarm', 'timer', 'stopwatch'],
-      'Calculator': ['calculator', 'calculate', 'calc'],
-    };
-
-    for (final entry in appPatterns.entries) {
-      for (final keyword in entry.value) {
-        if (lower.contains(keyword)) {
-          return [
-            ActionStep(action: 'open_app', params: {'app_name': entry.key}),
-          ];
-        }
-      }
-    }
-
-    // Generic fallback for "open X"
-    final openMatch = RegExp(r'^open\s+([a-zA-Z0-9]+)').firstMatch(lower);
-    if (openMatch != null) {
-      String app = openMatch.group(1)!;
-      app = app[0].toUpperCase() + app.substring(1);
-      return [
-        ActionStep(action: 'open_app', params: {'app_name': app}),
-      ];
-    }
-
-    return null;
+    return getNavigationShortcut(goal);
   }
 }
