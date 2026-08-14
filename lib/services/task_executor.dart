@@ -89,11 +89,18 @@ Rules:
 
 GAME / LONG-TASK RULES (VERY IMPORTANT):
 - This may be a GAME (for example Brawl Stars). Game screens often have few text labels: rely on the center coordinates from the dump and use `click_at` to tap in-game buttons.
+- Brawl Stars map — use RELATIVE coordinates (percentages of the screen). Given a screen W x H, the pixel x = X% * W and y = Y% * H:
+  * ATTACK button: large round button at bottom-RIGHT, ~88% X, ~92% Y. This is the button you press to shoot/fight.
+  * SUPER button: just left of the attack button, ~72% X, ~92% Y. Only press it when it looks charged (no need to aim precisely).
+  * JOYSTICK: bottom-LEFT, ~15% X, ~92% Y. Moving it is optional; keep attacking instead.
+  * "Play"/"Jugar" button: lower-center of the lobby, ~50% X, ~77% Y.
+  * Trophy counter: top-center of the lobby, ~50% X, ~5% Y. Check it after every match.
+  * Compute the actual pixel coordinates yourself from the screen size before tapping.
 - The user may ask you to WIN/RAISE trophies with a specific brawler (e.g. "sube 50 copas con el brawler crow"). Before starting a match, on the brawler selection screen, tap the brawler named in the task (e.g. "Crow"). After every match you must select that same brawler again before starting the next one.
 - These are LONG goals that can take hundreds of steps. You MUST keep playing match after match and keep checking the trophy counter after each match. Do NOT declare done until the target number of trophies is actually reached.
-- During an active match, tap the attack button (usually the large round button at the bottom-right of the screen) repeatedly to fight. Moving the joystick is optional; keep attacking.
-- When the match ends, tap the continue / next / "recompensa" button to return to the lobby, then start the next match.
-- If a screen does not change, tap the most likely button coordinate or wait, then try again.
+- During an active match the screen dump may be EMPTY or have almost no text labels. That is NORMAL for games. If the dump is empty but you know you are mid-match, DO NOT press back or home and DO NOT give up: keep tapping the attack button (bottom-right, ~88%/92%) every step, with a `wait` action every few taps to let the screen update.
+- A typical match lasts ~60-90 seconds. After several attack taps, switch to reading the screen to detect the match end. When the match ends, tap the continue / next / "recompensa" / "victoria" / "derrota" / trophy screen button to return to the lobby, then start the next match and re-select the brawler.
+- If a screen does not change, tap the most likely button coordinate or use `wait`, then re-read. Do NOT repeat the exact same failing action more than 2 times in a row.
 - Do not give up: if you are stuck, try a completely different button or coordinate. Sticking is temporary; persistence wins.
 - Only set is_complete=true when the goal (e.g. the trophy target) is truly achieved.
 ''';

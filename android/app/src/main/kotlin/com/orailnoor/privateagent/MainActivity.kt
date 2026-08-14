@@ -225,6 +225,16 @@ class MainActivity : FlutterActivity() {
                             }
                         }
 
+                        "getScreenSize" -> {
+                            val service = AgentAccessibilityService.instance
+                            if (service == null) {
+                                result.error("SERVICE_NOT_RUNNING", "Accessibility service is not running", null)
+                            } else {
+                                val size = service.getScreenSize()
+                                result.success(mapOf("width" to size.first, "height" to size.second))
+                            }
+                        }
+
                         else -> result.notImplemented()
                     }
                 }

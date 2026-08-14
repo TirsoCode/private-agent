@@ -167,6 +167,20 @@ class AgentAccessibilityService : AccessibilityService() {
         }
     }
 
+    /** Return the active display size in pixels (width x height). */
+    fun getScreenSize(): Pair<Int, Int> {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val d = display
+            if (d != null) {
+                val point = android.graphics.Point()
+                d.getRealSize(point)
+                return Pair(point.x, point.y)
+            }
+        }
+        val metrics = resources.displayMetrics
+        return Pair(metrics.widthPixels, metrics.heightPixels)
+    }
+
     /** Capture screenshot as Base64 string */
     @RequiresApi(Build.VERSION_CODES.R)
     fun takeScreenshot(callback: (String?) -> Unit) {

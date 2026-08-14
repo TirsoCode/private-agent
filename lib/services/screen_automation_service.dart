@@ -80,17 +80,39 @@ class ScreenAutomationService {
     }
   }
 
+  /// Get the active display size in pixels.
+  Future<Map<String, int>> getScreenSize() async {
+    try {
+      final result = await _channel.invokeMethod<Map>('getScreenSize');
+      if (result == null) return {};
+      return Map<String, int>.from(result);
+    } catch (e) {
+      return {};
+    }
+  }
+
   /// Get a simplified text description of the current screen for the LLM
   Future<String> getScreenDescription() async {
+    final size = await getScreenSize();
+    final pkg = await getCurrentPackage();
     final nodes = await dumpScreen();
+    final sizeLine = size.isNotEmpty
+        ? 'Screen size: ${size['width']}x${size['height']} '
+            '(convert percentage coordinates to pixels using this)'
+        : '';
+    final pkgLine = pkg != null ? 'Current app: $pkg' : '';
+
     if (nodes.isEmpty) {
-      return 'Could not read screen. Make sure accessibility service is enabled.';
+      return '$pkgLine\n$sizeLine\n'
+          'Could not read screen. Make sure accessibility service is enabled.';
     }
 
     final buffer = StringBuffer();
-    final pkg = await getCurrentPackage();
-    if (pkg != null) {
-      buffer.writeln('Current app: $pkg');
+    if (pkgLine.isNotEmpty) {
+      buffer.writeln(pkgLine);
+    }
+    if (sizeLine.isNotEmpty) {
+      buffer.writeln(sizeLine);
     }
     buffer.writeln('Screen elements:');
 
@@ -142,15 +164,23 @@ class ScreenAutomationService {
 
   /// Get a highly compressed text description of the screen for the LLM
   Future<String> getCompressedScreenDescription(String task) async {
+    final size = await getScreenSize();
+    final pkg = await getCurrentPackage();
     final nodes = await dumpScreen();
+    final sizeLine = size.isNotEmpty ? 'SIZE: ${size['width']}x${size['height']}' : '';
+    final pkgLine = pkg != null ? 'APP: $pkg' : '';
+
     if (nodes.isEmpty) {
-      return 'Could not read screen. Make sure accessibility service is enabled.';
+      return '$pkgLine $sizeLine '
+          'Screen empty or unreadable (common during gameplay). Do not give up.';
     }
 
     final buffer = StringBuffer();
-    final pkg = await getCurrentPackage();
-    if (pkg != null) {
-      buffer.writeln('APP: $pkg');
+    if (pkgLine.isNotEmpty) {
+      buffer.writeln(pkgLine);
+    }
+    if (sizeLine.isNotEmpty) {
+      buffer.writeln(sizeLine);
     }
     
     // Extract task keywords for highlighting
