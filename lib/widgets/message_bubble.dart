@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/chat_message.dart';
+import '../config/responsive.dart';
 
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
@@ -10,20 +11,24 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = message.isUser;
+    final compact = ScreenFit.of(context).isCompact;
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.8,
+          maxWidth: MediaQuery.of(context).size.width * (compact ? 0.92 : 0.8),
         ),
         margin: EdgeInsets.only(
-          left: isUser ? 48 : 8,
-          right: isUser ? 8 : 48,
+          left: isUser ? (compact ? 24 : 48) : 8,
+          right: isUser ? 8 : (compact ? 24 : 48),
           top: 4,
           bottom: 4,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : 16,
+          vertical: compact ? 8 : 12,
+        ),
         decoration: BoxDecoration(
           color: isUser
               ? Theme.of(context).colorScheme.primary
@@ -102,7 +107,7 @@ class MessageBubble extends StatelessWidget {
                 message.content,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onPrimary,
-                  fontSize: 15,
+                  fontSize: compact ? 13.5 : 15,
                   height: 1.4,
                 ),
               )
@@ -113,12 +118,12 @@ class MessageBubble extends StatelessWidget {
                 styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
                   p: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 15,
+                    fontSize: compact ? 13.5 : 15,
                     height: 1.45,
                   ),
                   listBullet: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 15,
+                    fontSize: compact ? 13.5 : 15,
                   ),
                 ),
               ),

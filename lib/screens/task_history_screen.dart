@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/task_history_logger.dart';
+import '../config/responsive.dart';
 
 class TaskHistoryScreen extends StatefulWidget {
   const TaskHistoryScreen({super.key});
@@ -238,8 +239,12 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> {
   }
 
   Widget _buildStatColumn(String label, String value, {Color? color, required bool isDark}) {
+    final compact = ScreenFit.of(context).isCompact;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 16,
+        vertical: compact ? 8 : 12,
+      ),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(14),
@@ -252,16 +257,16 @@ class _TaskHistoryScreenState extends State<TaskHistoryScreen> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: compact ? 15 : 20,
               fontWeight: FontWeight.w900,
               color: color ?? (isDark ? Colors.white : const Color(0xFF1E293B)),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             label.toUpperCase(),
             style: TextStyle(
-              fontSize: 9,
+              fontSize: compact ? 8 : 9,
               fontWeight: FontWeight.w800,
               color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
               letterSpacing: 0.5,

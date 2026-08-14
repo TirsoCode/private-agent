@@ -297,9 +297,15 @@ class _OverlayAppState extends State<OverlayApp> {
   }
 
   OverlayPosition? _savedBubblePosition;
+  double _panelWidth = 300;
+  double _panelHeight = 360;
 
   Future<void> _toggleExpanded() async {
     if (!_isExpanded) {
+      // Fit the expanded panel inside the physical screen (e.g. 3.0" Doogee).
+      final screen = MediaQuery.sizeOf(context);
+      _panelWidth = (screen.width - 12).clamp(200.0, 300.0).toDouble();
+      _panelHeight = (screen.height - 48).clamp(280.0, 360.0).toDouble();
       // Save current bubble position before expanding
       _savedBubblePosition = await FlutterOverlayWindow.getOverlayPosition();
       final initialPosition = OverlayPosition(
@@ -308,7 +314,11 @@ class _OverlayAppState extends State<OverlayApp> {
       );
       // Move to a safe position so the expanded panel stays on-screen
       await FlutterOverlayWindow.moveOverlay(initialPosition);
-      await FlutterOverlayWindow.resizeOverlay(300, 360, false);
+      await FlutterOverlayWindow.resizeOverlay(
+        _panelWidth.round(),
+        _panelHeight.round(),
+        false,
+      );
       setState(() {
         _isExpanded = true;
         _scrollToBottom();
@@ -382,14 +392,14 @@ class _OverlayAppState extends State<OverlayApp> {
 
     // Full Chat Interface Panel
     return OverflowBox(
-      minWidth: 300,
-      maxWidth: 300,
-      minHeight: 360,
-      maxHeight: 360,
+      minWidth: _panelWidth,
+      maxWidth: _panelWidth,
+      minHeight: _panelHeight,
+      maxHeight: _panelHeight,
       alignment: Alignment.center,
       child: Container(
-        width: 300,
-        height: 360,
+        width: _panelWidth,
+        height: _panelHeight,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),

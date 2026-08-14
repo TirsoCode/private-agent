@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'dart:ui';
 import '../config/feature_flags.dart';
+import '../config/responsive.dart';
 import '../services/ai_service.dart';
 import '../services/screen_automation_service.dart';
 import 'home_screen.dart';
@@ -425,10 +426,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               children: [
                 // Top Custom Animated Stepper Bar
                 Padding(
-                  padding: const EdgeInsets.only(
-                    top: 24,
-                    left: 32,
-                    right: 32,
+                  padding: EdgeInsets.only(
+                    top: ScreenFit.of(context).isCompact ? 10 : 24,
+                    left: ScreenFit.of(context).isCompact ? 16 : 32,
+                    right: ScreenFit.of(context).isCompact ? 16 : 32,
                     bottom: 8,
                   ),
                   child: _buildAnimatedStepper(isDark),
@@ -583,8 +584,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   // --- STEP 1: WELCOME SCREEN ---
   Widget _buildWelcomePage(bool isDark) {
+    final compact = ScreenFit.of(context).isCompact;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -595,16 +597,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             children: [
               // Outer Halo Glow
               Container(
-                width: 170,
-                height: 170,
+                width: compact ? 110 : 170,
+                height: compact ? 110 : 170,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Theme.of(context).primaryColor.withOpacity(0.12),
                 ),
               ),
               Container(
-                width: 140,
-                height: 140,
+                width: compact ? 88 : 140,
+                height: compact ? 88 : 140,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isDark ? const Color(0xFF151D30) : Colors.white,
@@ -622,7 +624,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ),
                 child: Icon(
                   Icons.smart_toy_rounded,
-                  size: 70,
+                  size: compact ? 44 : 70,
                   color: Theme.of(context).primaryColor,
                 ),
               ),
@@ -633,18 +635,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           Text(
             'PrivateAgent',
             style: TextStyle(
-              fontSize: 38,
+              fontSize: compact ? 26 : 38,
               fontWeight: FontWeight.w900,
               color: isDark ? Colors.white : const Color(0xFF1E293B),
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: compact ? 8 : 16),
           Text(
             'Your local, secure, and smart mobile companion. PrivateAgent can navigate apps, perform operations, and speak with you.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: compact ? 12.5 : 15,
               color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
               height: 1.55,
             ),
@@ -658,7 +660,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             'Full support for local-first execution. Keys remain encrypted locally.',
             isDark,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 8 : 12),
           _buildFeatureCard(
             Icons.ads_click_rounded,
             'Automated Actions',
@@ -670,7 +672,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           // Get Started button
           Container(
             width: double.infinity,
-            height: 56,
+            height: compact ? 46 : 56,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
               color: Theme.of(context).colorScheme.primary,
@@ -699,24 +701,27 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   borderRadius: BorderRadius.circular(18),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     'Get Started',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: compact ? 14 : 16,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.2,
                     ),
                   ),
-                  SizedBox(width: 10),
-                  Icon(Icons.arrow_forward_rounded, size: 20),
+                  const SizedBox(width: 10),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: compact ? 16 : 20,
+                  ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: compact ? 12 : 24),
         ],
       ),
     );
@@ -728,8 +733,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     String subtitle,
     bool isDark,
   ) {
+    final compact = ScreenFit.of(context).isCompact;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(compact ? 10 : 16),
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(20),
@@ -741,30 +747,34 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(compact ? 7 : 10),
             decoration: BoxDecoration(
               color: Theme.of(context).primaryColor.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 22, color: Theme.of(context).primaryColor),
+            child: Icon(
+              icon,
+              size: compact ? 17 : 22,
+              color: Theme.of(context).primaryColor,
+            ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: compact ? 10 : 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: compact ? 12.5 : 14,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: compact ? 10.5 : 12,
                     color: isDark
                         ? const Color(0xFF94A3B8)
                         : const Color(0xFF475569),
@@ -780,25 +790,26 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   // --- STEP 2: PERMISSIONS SCREEN ---
   Widget _buildPermissionsPage(bool isDark) {
+    final compact = ScreenFit.of(context).isCompact;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
-          const Text(
+          SizedBox(height: compact ? 12 : 24),
+          Text(
             'Configure Permissions',
             style: TextStyle(
-              fontSize: 24,
+              fontSize: compact ? 18 : 24,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             'Permissions are needed to interact with other apps.',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: compact ? 12 : 14,
               color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
             ),
           ),
@@ -984,6 +995,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     VoidCallback onGrant,
     bool isDark,
   ) {
+    final compact = ScreenFit.of(context).isCompact;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -1006,25 +1018,25 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(compact ? 11 : 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: EdgeInsets.all(compact ? 7 : 10),
                     decoration: BoxDecoration(
                       color: Theme.of(context).primaryColor.withOpacity(0.12),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       icon,
-                      size: 20,
+                      size: compact ? 17 : 20,
                       color: Theme.of(context).primaryColor,
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  SizedBox(width: compact ? 10 : 14),
                   Expanded(
                     child: Text(
                       title,
@@ -1063,11 +1075,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Text(
                 description,
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: compact ? 11.5 : 12.5,
                   height: 1.45,
                   color: isDark
                       ? const Color(0xFF94A3B8)
@@ -1083,16 +1095,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   // --- STEP 3: MODEL SETUP SCREEN ---
   Widget _buildModelSetupPage(bool isDark) {
+    final compact = ScreenFit.of(context).isCompact;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
-          const Text(
+          SizedBox(height: compact ? 10 : 24),
+          Text(
             'Configure AI Model',
             style: TextStyle(
-              fontSize: 24,
+              fontSize: compact ? 18 : 24,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.5,
             ),
@@ -1101,7 +1114,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           Text(
             'Select a provider to prefill API details automatically.',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: compact ? 12 : 13,
               color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
             ),
           ),
@@ -1109,7 +1122,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
           // Providers Grid/List
           SizedBox(
-            height: 90,
+            height: compact ? 72 : 90,
             child: ListView(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
@@ -1335,9 +1348,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     bool isDark,
   ) {
     final isSelected = _selectedProvider == id;
+    final compact = ScreenFit.of(context).isCompact;
 
     return Container(
-      width: 104,
+      width: compact ? 86 : 104,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
@@ -1372,12 +1386,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             children: [
               Icon(
                 icon,
-                size: 26,
+                size: compact ? 21 : 26,
                 color: isSelected
                     ? Theme.of(context).colorScheme.primary
                     : (isDark ? Colors.grey[400] : Colors.grey[600]),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 label,
                 textAlign: TextAlign.center,
@@ -1437,9 +1451,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             fontSize: 13,
             color: isDark ? Colors.grey[700] : Colors.grey[400],
           ),
-          contentPadding: const EdgeInsets.symmetric(
+          contentPadding: EdgeInsets.symmetric(
             horizontal: 20,
-            vertical: 16,
+            vertical: ScreenFit.of(context).isCompact ? 11 : 16,
           ),
           border: InputBorder.none,
           suffixIcon: suffix,

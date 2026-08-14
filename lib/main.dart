@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'dart:developer';
 import 'config/feature_flags.dart';
+import 'config/responsive.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'overlay_main.dart';
@@ -76,6 +77,7 @@ class PrivateAgentApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).shortestSide < 340;
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, ThemeMode currentMode, child) {
@@ -83,6 +85,16 @@ class PrivateAgentApp extends StatelessWidget {
           title: 'PrivateAgent',
           debugShowCheckedModeBanner: false,
           themeMode: currentMode,
+          builder: (context, child) {
+            // Adapt text size to small screens (e.g. 3.0" Doogee U10).
+            final scale = screenTextScale(MediaQuery.sizeOf(context));
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(scale),
+              ),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           theme: ThemeData(
             brightness: Brightness.light,
             primaryColor: const Color(0xFF4F46E5), // Indigo-600
@@ -98,10 +110,15 @@ class PrivateAgentApp extends StatelessWidget {
               error: Colors.redAccent,
             ),
             useMaterial3: true,
-            appBarTheme: const AppBarTheme(
+            visualDensity: compact
+                ? VisualDensity.compact
+                : VisualDensity.standard,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            appBarTheme: AppBarTheme(
               centerTitle: true,
               elevation: 0,
               scrolledUnderElevation: 0,
+              toolbarHeight: compact ? 44 : null,
               backgroundColor: Colors.transparent,
               foregroundColor: Color(0xFF1E293B),
               iconTheme: IconThemeData(color: Color(0xFF1E293B)),
@@ -138,10 +155,15 @@ class PrivateAgentApp extends StatelessWidget {
               error: Colors.redAccent,
             ),
             useMaterial3: true,
-            appBarTheme: const AppBarTheme(
+            visualDensity: compact
+                ? VisualDensity.compact
+                : VisualDensity.standard,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            appBarTheme: AppBarTheme(
               centerTitle: true,
               elevation: 0,
               scrolledUnderElevation: 0,
+              toolbarHeight: compact ? 44 : null,
               backgroundColor: Colors.transparent,
               foregroundColor: Color(0xFFF8FAFC),
               iconTheme: IconThemeData(color: Color(0xFFF8FAFC)),

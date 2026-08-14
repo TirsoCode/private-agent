@@ -10,6 +10,7 @@ import 'task_history_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../config/feature_flags.dart';
+import '../config/responsive.dart';
 
 class SettingsScreen extends StatefulWidget {
   final AiService aiService;
@@ -247,10 +248,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     required List<Widget> children,
     required bool isDark,
   }) {
+    final compact = ScreenFit.of(context).isCompact;
     return Card(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: EdgeInsets.only(bottom: compact ? 12 : 20),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(compact ? 14 : 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -357,6 +359,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final compact = ScreenFit.of(context).isCompact;
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -365,7 +368,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, compact ? 24 : 40),
         children: [
           // 1. Appearance Card
           _buildSettingsCard(

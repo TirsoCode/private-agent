@@ -16,6 +16,7 @@ import 'task_history_screen.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../main.dart';
 import '../config/feature_flags.dart';
+import '../config/responsive.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -478,6 +479,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fit = ScreenFit.of(context);
+    final compact = fit.isCompact;
 
     return Scaffold(
       backgroundColor: isDark
@@ -487,7 +490,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         title: RichText(
           text: TextSpan(
             style: TextStyle(
-              fontSize: 20,
+              fontSize: compact ? 16 : 20,
               color: isDark ? Colors.white : const Color(0xFF1E293B),
             ),
             children: [
@@ -548,15 +551,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       drawer: _buildDrawer(context, isDark),
       body: Stack(
         children: [
-          // Background mesh glows
-          _buildBackgroundGlows(isDark),
-
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-              child: Container(color: Colors.transparent),
+          // Background mesh glows (hidden on small screens to save space/GPU)
+          if (!compact) ...[
+            _buildBackgroundGlows(isDark),
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+                child: Container(color: Colors.transparent),
+              ),
             ),
-          ),
+          ],
 
           Column(
             children: [
@@ -1022,9 +1026,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildModeSelector(bool isDark) {
     final activeBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
 
+    final compact = ScreenFit.of(context).isCompact;
+
     return Center(
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 12),
+        margin: EdgeInsets.symmetric(vertical: compact ? 6 : 12),
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: activeBg,
@@ -1070,7 +1076,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: ScreenFit.of(context).isCompact ? 16 : 24,
+          vertical: ScreenFit.of(context).isCompact ? 6 : 8,
+        ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(26),
           color: isSelected
@@ -1120,13 +1129,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _buildEmptyState(bool isDark) {
     final time = DateTime.now();
+    final compact = ScreenFit.of(context).isCompact;
+    final headingSize = compact ? 19.0 : 30.0;
+
     String timeGreeting = 'Hello';
     if (time.hour >= 5 && time.hour < 12) {
-      timeGreeting = 'Hello, good morning.';
+      timeGreeting = compact ? 'Good morning.' : 'Hello, good morning.';
     } else if (time.hour >= 12 && time.hour < 17) {
-      timeGreeting = 'Hello, good afternoon.';
+      timeGreeting = compact ? 'Good afternoon.' : 'Hello, good afternoon.';
     } else if (time.hour >= 17 && time.hour < 22) {
-      timeGreeting = 'Hello, good evening.';
+      timeGreeting = compact ? 'Good evening.' : 'Hello, good evening.';
     } else {
       timeGreeting = 'Hello.';
     }
@@ -1145,13 +1157,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             'What\'s on my screen?',
           ];
 
+    final visibleSuggestions =
+        compact ? suggestions.take(2).toList() : suggestions;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 16 : 24,
+          vertical: compact ? 12 : 32,
+        ),
         child: Column(
           children: [
-            const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerLeft,
               child: Column(
@@ -1160,36 +1177,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   Text(
                     timeGreeting,
                     style: TextStyle(
-                      fontSize: 30,
+                      fontSize: headingSize,
                       fontWeight: FontWeight.w300,
                       color: isDark
                           ? const Color(0xFF94A3B8)
                           : const Color(0xFF64748B),
-                      letterSpacing: -1.5,
+                      letterSpacing: -1,
                       height: 1.1,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     'How can I help you?',
                     style: TextStyle(
-                      fontSize: 30,
+                      fontSize: headingSize,
                       fontWeight: FontWeight.w600,
                       color: Theme.of(context).colorScheme.primary,
-                      letterSpacing: -1.5,
+                      letterSpacing: -1,
                       height: 1.2,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 48),
+            SizedBox(height: compact ? 18 : 48),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'SUGGESTIONS',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: compact ? 9 : 11,
                   fontWeight: FontWeight.w800,
                   color: isDark
                       ? const Color(0xFF94A3B8)
@@ -1198,24 +1215,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             SizedBox(
-              height: 52,
+              height: compact ? 40 : 52,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
-                itemCount: suggestions.length,
+                itemCount: visibleSuggestions.length,
                 itemBuilder: (context, index) {
-                  final suggestion = suggestions[index];
+                  final suggestion = visibleSuggestions[index];
                   return Container(
                     margin: const EdgeInsets.only(right: 12),
                     child: InkWell(
                       onTap: () => _sendMessage(suggestion),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: compact ? 14 : 20,
+                          vertical: compact ? 8 : 12,
                         ),
                         decoration: BoxDecoration(
                           color: isDark
@@ -1263,8 +1280,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildInputBar(bool isDark) {
+    final compact = ScreenFit.of(context).isCompact;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: EdgeInsets.fromLTRB(12, 6, 12, compact ? 12 : 24),
       decoration: const BoxDecoration(color: Colors.transparent),
       child: Row(
         children: [
