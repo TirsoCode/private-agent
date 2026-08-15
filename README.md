@@ -56,8 +56,9 @@ flutter build apk --release --dart-define=OPENROUTER_API_KEY="sk-or-..."
 
 1. Install the APK on your Android device (API 30+ recommended).
 2. Launch PrivateAgent and complete the quick onboarding (Welcome + Permissions).
-3. The default model is `openai/gpt-oss-120b:free`. You can switch it at any
-   time in **Settings → AI Model** (or type any other OpenRouter model ID).
+3. The default model is `openai/gpt-oss-20b:free`. You can switch it at any
+   time in **Settings → AI Model** — the quick-select chips only list free
+   OpenRouter models (you can still type any other model ID manually).
 4. Enable the **"PrivateAgent Screen Control"** service in your Android Accessibility Settings.
 
 > **Note:** Because the key is compiled into the APK, anyone who has the APK

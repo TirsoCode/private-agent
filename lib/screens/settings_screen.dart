@@ -370,7 +370,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 controller: _modelController,
                 decoration: _buildInputDecoration(
                   labelText: 'Model',
-                  hintText: 'openai/gpt-oss-120b:free',
+                  hintText: 'openai/gpt-oss-20b:free',
                   prefixIcon: const Icon(Icons.smart_toy_rounded, size: 18),
                 ),
               ),
@@ -382,47 +382,51 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ActionChip(
                     avatar: const Icon(Icons.bolt_rounded, size: 16),
                     label: const Text(
-                      'GPT-OSS 120B (free)',
+                      'GPT-OSS 20B (free)',
                       style: TextStyle(fontSize: 11),
                     ),
                     onPressed: () =>
-                        _modelController.text = 'openai/gpt-oss-120b:free',
+                        _modelController.text = 'openai/gpt-oss-20b:free',
                   ),
                   ActionChip(
                     label: const Text(
-                      'GPT-4o Mini',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    onPressed: () =>
-                        _modelController.text = 'openai/gpt-4o-mini',
-                  ),
-                  ActionChip(
-                    label: const Text('GPT-4o', style: TextStyle(fontSize: 11)),
-                    onPressed: () => _modelController.text = 'openai/gpt-4o',
-                  ),
-                  ActionChip(
-                    label: const Text(
-                      'DeepSeek V3',
+                      'Nemotron Ultra 550B (free)',
                       style: TextStyle(fontSize: 11),
                     ),
                     onPressed: () => _modelController.text =
-                        'deepseek/deepseek-chat-v3-0324',
+                        'nvidia/nemotron-3-ultra-550b-a55b:free',
                   ),
                   ActionChip(
                     label: const Text(
-                      'Claude Sonnet',
+                      'Nemotron Super 120B (free)',
                       style: TextStyle(fontSize: 11),
                     ),
-                    onPressed: () =>
-                        _modelController.text = 'anthropic/claude-3.5-sonnet',
+                    onPressed: () => _modelController.text =
+                        'nvidia/nemotron-3-super-120b-a12b:free',
                   ),
                   ActionChip(
                     label: const Text(
-                      'Gemini Flash',
+                      'Nemotron Nano 30B (free)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => _modelController.text =
+                        'nvidia/nemotron-3-nano-30b-a3b:free',
+                  ),
+                  ActionChip(
+                    label: const Text(
+                      'Gemma 4 31B (free)',
                       style: TextStyle(fontSize: 11),
                     ),
                     onPressed: () =>
-                        _modelController.text = 'google/gemini-2.0-flash-001',
+                        _modelController.text = 'google/gemma-4-31b-it:free',
+                  ),
+                  ActionChip(
+                    label: const Text(
+                      'Gemma 4 26B (free)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => _modelController.text =
+                        'google/gemma-4-26b-a4b-it:free',
                   ),
                 ],
               ),

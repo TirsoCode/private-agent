@@ -18,7 +18,11 @@ class AiService {
   );
 
   static const String _defaultBaseUrl = 'https://openrouter.ai/api/v1';
-  static const String _defaultModel = 'openai/gpt-oss-120b:free';
+  static const String _defaultModel = 'openai/gpt-oss-20b:free';
+
+  /// Free model slugs that OpenRouter has removed. Any device still holding
+  /// one of these (saved before removal) is reset to the current default.
+  static const Set<String> _deprecatedModels = {'openai/gpt-oss-120b:free'};
   static const String nvidiaBaseUrl = 'https://integrate.api.nvidia.com/v1';
   static const String nvidiaDefaultModel = 'z-ai/glm-5.2';
 
@@ -121,7 +125,13 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
         ? _envOpenRouterApiKey
         : prefs.getString('api_key');
     _baseUrl = _defaultBaseUrl;
-    _model = prefs.getString('api_model') ?? _defaultModel;
+    final savedModel = prefs.getString('api_model');
+    _model =
+        (savedModel == null ||
+            savedModel.isEmpty ||
+            _deprecatedModels.contains(savedModel))
+        ? _defaultModel
+        : savedModel;
     _maxSteps = prefs.getInt('api_max_steps') ?? 200;
     _disableMaxSteps = prefs.getBool('api_disable_max_steps') ?? false;
     _temperature = prefs.getDouble('api_temperature') ?? 1.0;
