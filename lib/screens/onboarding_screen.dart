@@ -5,7 +5,6 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'dart:ui';
 import '../config/feature_flags.dart';
 import '../config/responsive.dart';
-import '../services/ai_service.dart';
 import '../services/screen_automation_service.dart';
 import 'home_screen.dart';
 
@@ -21,7 +20,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   final PageController _pageController = PageController();
   final ScreenAutomationService _screenAutomationService =
       ScreenAutomationService();
-  final AiService _aiService = AiService();
 
   int _currentStep = 0;
   bool _isAccessibilityGranted = false;
@@ -32,45 +30,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   bool _isSmsGranted = false;
   bool _isOverlayGranted = false;
 
-  // AI config states
-  String _selectedProvider = 'deepseek';
-  final TextEditingController _apiKeyController = TextEditingController();
-  final TextEditingController _baseUrlController = TextEditingController(
-    text: 'https://api.deepseek.com',
-  );
-  final TextEditingController _modelController = TextEditingController(
-    text: 'deepseek-chat',
-  );
-  bool _obscureKey = true;
-  bool _isValidating = false;
-  String? _validationError;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadAiDefaults();
     _checkPermissions();
-  }
-
-  Future<void> _loadAiDefaults() async {
-    await _aiService.init();
-    if (!mounted || !_aiService.isConfigured) return;
-    setState(() {
-      _selectedProvider = 'custom';
-      _apiKeyController.text = _aiService.apiKey;
-      _baseUrlController.text = _aiService.baseUrl;
-      _modelController.text = _aiService.model;
-    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
-    _apiKeyController.dispose();
-    _baseUrlController.dispose();
-    _modelController.dispose();
     super.dispose();
   }
 
@@ -154,250 +124,20 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     });
   }
 
-  void _selectProvider(String provider) {
-    setState(() {
-      _selectedProvider = provider;
-      _validationError = null;
-      if (provider == 'deepseek') {
-        _baseUrlController.text = 'https://api.deepseek.com';
-        _modelController.text = 'deepseek-chat';
-      } else if (provider == 'groq') {
-        _baseUrlController.text = 'https://api.groq.com/openai/v1';
-        _modelController.text = 'llama-3.3-70b-versatile';
-      } else if (provider == 'nvidia') {
-        _baseUrlController.text = AiService.nvidiaBaseUrl;
-        _modelController.text = AiService.nvidiaDefaultModel;
-      } else if (provider == 'ollama') {
-        _baseUrlController.text = 'http://10.0.2.2:11434/v1';
-        _modelController.text = 'gemma2';
-      } else if (provider == 'local') {
-        _baseUrlController.text = 'http://10.0.2.2:1234/v1';
-        _modelController.text = 'qwen2.5-7b-instruct';
-      } else {
-        _baseUrlController.clear();
-        _modelController.clear();
-      }
-    });
-  }
-
-  Future<void> _testAndSave() async {
-    setState(() {
-      _isValidating = true;
-      _validationError = null;
-    });
-
-    final apiKey = _apiKeyController.text.trim();
-    final baseUrl = _baseUrlController.text.trim();
-    final model = _modelController.text.trim();
-
-    if (baseUrl.isEmpty || model.isEmpty) {
-      setState(() {
-        _validationError = 'Please fill out API Base URL and Model.';
-        _isValidating = false;
-      });
-      return;
-    }
-
-    if (_selectedProvider != 'ollama' &&
-        _selectedProvider != 'local' &&
-        apiKey.isEmpty) {
-      setState(() {
-        _validationError = 'API Key is required for this provider.';
-        _isValidating = false;
-      });
-      return;
-    }
-
-    try {
-      final models = await _aiService.fetchAvailableModels(baseUrl, apiKey);
-      if (models.isNotEmpty ||
-          _selectedProvider == 'ollama' ||
-          _selectedProvider == 'local') {
-        await _aiService.saveSettings(
-          apiKey: apiKey,
-          baseUrl: baseUrl,
-          model: model,
-        );
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('onboarding_completed', true);
-
-        if (mounted) {
-          setState(() {
-            _isValidating = false;
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'Configuration validated! Launching PrivateAgent...',
-              ),
-              backgroundColor: Colors.indigoAccent,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-          );
-        }
-      } else {
-        setState(() {
-          _validationError =
-              'Failed to fetch models from the server. Verify base URL and API Key.';
-          _isValidating = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _validationError =
-            'Error: ${e.toString().replaceFirst('Exception: ', '')}';
-        _isValidating = false;
-      });
-    }
-  }
-
-  Future<void> _fetchModels() async {
-    final baseUrl = _baseUrlController.text.trim();
-    final apiKey = _apiKeyController.text.trim();
-
-    if (baseUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please enter an API Base URL first.'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isValidating = true;
-    });
-
-    try {
-      final models = await _aiService.fetchAvailableModels(baseUrl, apiKey);
-
-      setState(() {
-        _isValidating = false;
-      });
-
-      if (models.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'No models found. Check base URL or API Key.',
-              ),
-              backgroundColor: Colors.orangeAccent,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
-        }
-        return;
-      }
-
-      if (mounted) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: isDark ? const Color(0xFF161329) : Colors.white,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          builder: (context) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AiService.isNvidiaBaseUrl(baseUrl)
-                          ? 'Select a Free NVIDIA Model'
-                          : 'Select a Model',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: models.length,
-                        itemBuilder: (context, index) {
-                          final modelName = models[index];
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                            ),
-                            title: Text(
-                              modelName,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: isDark ? Colors.white70 : Colors.black87,
-                              ),
-                            ),
-                            trailing: const Icon(
-                              Icons.chevron_right_rounded,
-                              size: 18,
-                            ),
-                            onTap: () {
-                              setState(() {
-                                _modelController.text = modelName;
-                              });
-                              Navigator.pop(context);
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _isValidating = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error: ${e.toString().replaceFirst('Exception: ', '')}',
-            ),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  bool get _canProceedToModel {
+  bool get _canFinish {
     return _isAccessibilityGranted &&
         _isMicrophoneGranted &&
         (!FeatureFlags.floatingOverlayEnabled || _isOverlayGranted);
+  }
+
+  Future<void> _finishOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_completed', true);
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
   }
 
   @override
@@ -447,7 +187,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     children: [
                       _buildWelcomePage(isDark),
                       _buildPermissionsPage(isDark),
-                      _buildModelSetupPage(isDark),
                     ],
                   ),
                 ),
@@ -515,7 +254,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: List.generate(3, (index) {
+          children: List.generate(2, (index) {
             final isActive = _currentStep == index;
             final isCompleted = _currentStep > index;
 
@@ -556,7 +295,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           children: [
             _buildStepperLabel(0, 'Welcome'),
             _buildStepperLabel(1, 'Permissions'),
-            _buildStepperLabel(2, 'AI Setup'),
           ],
         ),
       ],
@@ -914,12 +652,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 height: 48,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  color: _canProceedToModel
+                  color: _canFinish
                       ? Theme.of(context).colorScheme.primary
                       : (isDark
                             ? const Color(0xFF1E293B)
                             : const Color(0xFFE2E8F0)),
-                  boxShadow: _canProceedToModel
+                  boxShadow: _canFinish
                       ? [
                           BoxShadow(
                             color: Theme.of(
@@ -932,14 +670,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       : null,
                 ),
                 child: ElevatedButton(
-                  onPressed: _canProceedToModel
-                      ? () {
-                          _pageController.nextPage(
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeOutCubic,
-                          );
-                        }
-                      : null,
+                  onPressed: _canFinish ? _finishOnboarding : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     foregroundColor: Colors.white,
@@ -955,11 +686,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   child: const Row(
                     children: [
                       Text(
-                        'Next',
+                        'Finish',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       SizedBox(width: 8),
-                      Icon(Icons.arrow_forward_rounded, size: 16),
+                      Icon(Icons.check_circle_outline_rounded, size: 16),
                     ],
                   ),
                 ),
@@ -1088,375 +819,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  // --- STEP 3: MODEL SETUP SCREEN ---
-  Widget _buildModelSetupPage(bool isDark) {
-    final compact = ScreenFit.of(context).isCompact;
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: compact ? 10 : 24),
-          Text(
-            'Configure AI Model',
-            style: TextStyle(
-              fontSize: compact ? 18 : 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Select a provider to prefill API details automatically.',
-            style: TextStyle(
-              fontSize: compact ? 12 : 13,
-              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Providers Grid/List
-          SizedBox(
-            height: compact ? 72 : 90,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              children: [
-                _buildProviderCard(
-                  'deepseek',
-                  'DeepSeek',
-                  Icons.analytics_rounded,
-                  isDark,
-                ),
-                const SizedBox(width: 10),
-                _buildProviderCard('groq', 'Groq', Icons.speed_rounded, isDark),
-                const SizedBox(width: 10),
-                _buildProviderCard(
-                  'nvidia',
-                  'NVIDIA',
-                  Icons.memory_rounded,
-                  isDark,
-                ),
-                const SizedBox(width: 10),
-                _buildProviderCard(
-                  'ollama',
-                  'Ollama',
-                  Icons.computer_rounded,
-                  isDark,
-                ),
-                const SizedBox(width: 10),
-                _buildProviderCard(
-                  'local',
-                  'Local Server',
-                  Icons.dns_rounded,
-                  isDark,
-                ),
-                const SizedBox(width: 10),
-                _buildProviderCard(
-                  'custom',
-                  'Custom',
-                  Icons.settings_suggest_rounded,
-                  isDark,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          Expanded(
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              children: [
-                if (_selectedProvider != 'ollama' &&
-                    _selectedProvider != 'local') ...[
-                  _buildFormTextField(
-                    controller: _apiKeyController,
-                    label: 'API Key',
-                    hint: 'sk-xxxxxxxxxxxx',
-                    obscure: _obscureKey,
-                    isDark: isDark,
-                    suffix: IconButton(
-                      icon: Icon(
-                        _obscureKey
-                            ? Icons.visibility_off_rounded
-                            : Icons.visibility_rounded,
-                        color: Colors.grey,
-                      ),
-                      onPressed: () =>
-                          setState(() => _obscureKey = !_obscureKey),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                _buildFormTextField(
-                  controller: _baseUrlController,
-                  label: 'API Base URL',
-                  hint: 'https://api.deepseek.com',
-                  isDark: isDark,
-                ),
-                const SizedBox(height: 16),
-                _buildFormTextField(
-                  controller: _modelController,
-                  label: 'Model Name',
-                  hint: 'deepseek-chat',
-                  isDark: isDark,
-                  suffix: IconButton(
-                    icon: _isValidating
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          )
-                        : Icon(
-                            Icons.sync_rounded,
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                    tooltip: 'Fetch models list',
-                    onPressed: _isValidating ? null : _fetchModels,
-                  ),
-                ),
-
-                if (_validationError != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.redAccent.withOpacity(0.2),
-                      ),
-                    ),
-                    child: Text(
-                      _validationError!,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 32),
-              ],
-            ),
-          ),
-
-          // Action Buttons Row
-          Row(
-            children: [
-              TextButton(
-                onPressed: _isValidating
-                    ? null
-                    : () {
-                        _pageController.previousPage(
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeOutCubic,
-                        );
-                      },
-                style: TextButton.styleFrom(
-                  foregroundColor: isDark
-                      ? Colors.white
-                      : const Color(0xFF475569),
-                ),
-                child: const Text(
-                  'Back',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                height: 52,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  color: _isValidating
-                      ? (isDark
-                            ? const Color(0xFF1E293B)
-                            : const Color(0xFFE2E8F0))
-                      : Theme.of(context).colorScheme.primary,
-                  boxShadow: _isValidating
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withOpacity(0.25),
-                            blurRadius: 12,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                ),
-                child: ElevatedButton(
-                  onPressed: _isValidating ? null : _testAndSave,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                  ),
-                  child: _isValidating
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
-                      : const Row(
-                          children: [
-                            Text(
-                              'Finish Setup',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(Icons.check_circle_outline_rounded, size: 20),
-                          ],
-                        ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProviderCard(
-    String id,
-    String label,
-    IconData icon,
-    bool isDark,
-  ) {
-    final isSelected = _selectedProvider == id;
-    final compact = ScreenFit.of(context).isCompact;
-
-    return Container(
-      width: compact ? 86 : 104,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isSelected
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
-          width: isSelected ? 2 : 1.2,
-        ),
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withOpacity(0.15),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : null,
-      ),
-      child: Card(
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        color: isSelected
-            ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
-            : Theme.of(context).colorScheme.surface,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: () => _selectProvider(id),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: compact ? 21 : 26,
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : (isDark ? Colors.grey[400] : Colors.grey[600]),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : (isDark ? Colors.grey[300] : Colors.grey[700]),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFormTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    bool obscure = false,
-    Widget? suffix,
-    required bool isDark,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.08),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.15 : 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        style: const TextStyle(fontSize: 14),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(
-            fontSize: 13,
-            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
-          ),
-          hintText: hint,
-          hintStyle: TextStyle(
-            fontSize: 13,
-            color: isDark ? Colors.grey[700] : Colors.grey[400],
-          ),
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: ScreenFit.of(context).isCompact ? 11 : 16,
-          ),
-          border: InputBorder.none,
-          suffixIcon: suffix,
         ),
       ),
     );

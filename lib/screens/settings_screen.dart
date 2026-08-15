@@ -32,11 +32,8 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen>
     with WidgetsBindingObserver {
-  late TextEditingController _apiKeyController;
-  late TextEditingController _baseUrlController;
   late TextEditingController _modelController;
   late TextEditingController _telegramTokenController;
-  bool _obscureKey = true;
   bool _telegramEnabled = false;
   double _maxSteps = 200;
   bool _disableMaxSteps = false;
@@ -53,8 +50,6 @@ class _SettingsScreenState extends State<SettingsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _apiKeyController = TextEditingController(text: widget.aiService.apiKey);
-    _baseUrlController = TextEditingController(text: widget.aiService.baseUrl);
     _modelController = TextEditingController(text: widget.aiService.model);
     _telegramTokenController = TextEditingController(
       text: widget.telegramService.botToken,
@@ -70,8 +65,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     _useSystemPrompt = widget.aiService.useSystemPrompt;
 
     // Auto-save listeners
-    _apiKeyController.addListener(_autoSave);
-    _baseUrlController.addListener(_autoSave);
     _modelController.addListener(_autoSave);
     _telegramTokenController.addListener(_autoSave);
     _maxTokensController.addListener(_autoSave);
@@ -96,13 +89,9 @@ class _SettingsScreenState extends State<SettingsScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _apiKeyController.removeListener(_autoSave);
-    _baseUrlController.removeListener(_autoSave);
     _modelController.removeListener(_autoSave);
     _telegramTokenController.removeListener(_autoSave);
     _maxTokensController.removeListener(_autoSave);
-    _apiKeyController.dispose();
-    _baseUrlController.dispose();
     _modelController.dispose();
     _telegramTokenController.dispose();
     _maxTokensController.dispose();
@@ -147,11 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   void _autoSave() {
-    widget.aiService.saveSettings(
-      apiKey: _apiKeyController.text.trim(),
-      baseUrl: _baseUrlController.text.trim(),
-      model: _modelController.text.trim(),
-    );
+    widget.aiService.saveSettings(model: _modelController.text.trim());
 
     widget.telegramService.saveSettings(
       botToken: _telegramTokenController.text.trim(),
@@ -166,79 +151,6 @@ class _SettingsScreenState extends State<SettingsScreen>
       useScreenCompression: _useScreenCompression,
       useSystemPrompt: _useSystemPrompt,
     );
-  }
-
-  Future<void> _fetchModels() async {
-    final baseUrl = _baseUrlController.text.trim();
-    final apiKey = _apiKeyController.text.trim();
-
-    if (baseUrl.isEmpty || apiKey.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter Base URL and API Key first.'),
-        ),
-      );
-      return;
-    }
-
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    final models = await widget.aiService.fetchAvailableModels(baseUrl, apiKey);
-
-    // Hide loading
-    if (mounted) Navigator.pop(context);
-
-    if (models.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No models found or error fetching models.'),
-          ),
-        );
-      }
-      return;
-    }
-
-    if (mounted) {
-      final isNvidia = AiService.isNvidiaBaseUrl(baseUrl);
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(
-            isNvidia ? 'Select a Free NVIDIA Model' : 'Select a Model',
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 300,
-            child: ListView.builder(
-              itemCount: models.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(models[index]),
-                  onTap: () {
-                    setState(() {
-                      _modelController.text = models[index];
-                    });
-                    Navigator.pop(context);
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-          ],
-        ),
-      );
-    }
   }
 
   Widget _buildSettingsCard({
@@ -447,140 +359,96 @@ class _SettingsScreenState extends State<SettingsScreen>
             ],
           ),
 
-          // 2. AI Engine Config Card
+          // 2. AI Model Card
           _buildSettingsCard(
-            icon: Icons.psychology_outlined,
-            title: 'AI Engine Configuration',
-            subtitle: 'Supports any OpenAI-compatible API endpoint',
+            icon: Icons.smart_toy_outlined,
+            title: 'AI Model',
+            subtitle: 'AI engine is preconfigured with OpenRouter',
             isDark: isDark,
             children: [
               TextField(
-                controller: _apiKeyController,
+                controller: _modelController,
                 decoration: _buildInputDecoration(
-                  labelText: 'API Key',
-                  hintText: 'sk-...',
-                  prefixIcon: const Icon(Icons.key_rounded, size: 18),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureKey ? Icons.visibility_off : Icons.visibility,
-                      size: 18,
-                    ),
-                    onPressed: () => setState(() => _obscureKey = !_obscureKey),
-                  ),
+                  labelText: 'Model',
+                  hintText: 'openai/gpt-oss-120b:free',
+                  prefixIcon: const Icon(Icons.smart_toy_rounded, size: 18),
                 ),
-                obscureText: _obscureKey,
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _baseUrlController,
-                decoration: _buildInputDecoration(
-                  labelText: 'API Base URL',
-                  hintText: 'https://api.deepseek.com',
-                  prefixIcon: const Icon(Icons.dns_rounded, size: 18),
-                ),
-              ),
-              const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
                 children: [
                   ActionChip(
+                    avatar: const Icon(Icons.bolt_rounded, size: 16),
                     label: const Text(
-                      'Local Server',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    tooltip: 'For local Llama.cpp or LM Studio',
-                    onPressed: () =>
-                        _baseUrlController.text = 'http://192.168.1.X:8080/v1',
-                  ),
-                  ActionChip(
-                    label: const Text(
-                      'Ollama Cloud',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    onPressed: () {
-                      _baseUrlController.text = 'https://ollama.com/v1';
-                      _modelController.text = 'gemma3:4b';
-                    },
-                  ),
-                  ActionChip(
-                    label: const Text(
-                      'DeepSeek',
+                      'GPT-OSS 120B (free)',
                       style: TextStyle(fontSize: 11),
                     ),
                     onPressed: () =>
-                        _baseUrlController.text = 'https://api.deepseek.com',
+                        _modelController.text = 'openai/gpt-oss-120b:free',
                   ),
                   ActionChip(
-                    label: const Text('Groq', style: TextStyle(fontSize: 11)),
-                    onPressed: () => _baseUrlController.text =
-                        'https://api.groq.com/openai/v1',
+                    label: const Text(
+                      'GPT-4o Mini',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () =>
+                        _modelController.text = 'openai/gpt-4o-mini',
                   ),
                   ActionChip(
-                    avatar: const Icon(Icons.memory_rounded, size: 16),
-                    label: const Text('NVIDIA', style: TextStyle(fontSize: 11)),
-                    tooltip: 'NVIDIA NIM free endpoints',
-                    onPressed: () {
-                      _baseUrlController.text = AiService.nvidiaBaseUrl;
-                      _modelController.text = AiService.nvidiaDefaultModel;
-                    },
+                    label: const Text('GPT-4o', style: TextStyle(fontSize: 11)),
+                    onPressed: () => _modelController.text = 'openai/gpt-4o',
                   ),
                   ActionChip(
-                    label: const Text('Custom', style: TextStyle(fontSize: 11)),
-                    tooltip: 'Clear fields',
-                    onPressed: () {
-                      _baseUrlController.clear();
-                      _apiKeyController.clear();
-                      _modelController.clear();
-                    },
+                    label: const Text(
+                      'DeepSeek V3',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => _modelController.text =
+                        'deepseek/deepseek-chat-v3-0324',
+                  ),
+                  ActionChip(
+                    label: const Text(
+                      'Claude Sonnet',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () =>
+                        _modelController.text = 'anthropic/claude-3.5-sonnet',
+                  ),
+                  ActionChip(
+                    label: const Text(
+                      'Gemini Flash',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () =>
+                        _modelController.text = 'google/gemini-2.0-flash-001',
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _modelController,
-                      decoration: _buildInputDecoration(
-                        labelText: 'Model',
-                        hintText: 'deepseek-chat',
-                        prefixIcon: const Icon(
-                          Icons.smart_toy_rounded,
-                          size: 18,
-                        ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.lock_rounded, size: 16),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'The OpenRouter API key is already configured at build '
+                        'time. You can type any model ID manually.',
+                        style: TextStyle(fontSize: 12, height: 1.4),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: _fetchModels,
-                    icon: const Icon(
-                      Icons.cloud_download,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    label: const Text(
-                      'Fetch',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),

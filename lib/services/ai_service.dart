@@ -11,8 +11,14 @@ class AiResponse {
 }
 
 class AiService {
-  static const String _defaultBaseUrl = 'https://api.deepseek.com';
-  static const String _defaultModel = 'deepseek-chat';
+  /// Compile-time OpenRouter API key, injected at build time via
+  /// --dart-define=OPENROUTER_API_KEY=... (sourced from a GitHub secret).
+  static const String _envOpenRouterApiKey = String.fromEnvironment(
+    'OPENROUTER_API_KEY',
+  );
+
+  static const String _defaultBaseUrl = 'https://openrouter.ai/api/v1';
+  static const String _defaultModel = 'openai/gpt-oss-120b:free';
   static const String nvidiaBaseUrl = 'https://integrate.api.nvidia.com/v1';
   static const String nvidiaDefaultModel = 'z-ai/glm-5.2';
 
@@ -111,8 +117,10 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    _apiKey = prefs.getString('api_key');
-    _baseUrl = prefs.getString('api_base_url') ?? _defaultBaseUrl;
+    _apiKey = _envOpenRouterApiKey.isNotEmpty
+        ? _envOpenRouterApiKey
+        : prefs.getString('api_key');
+    _baseUrl = _defaultBaseUrl;
     _model = prefs.getString('api_model') ?? _defaultModel;
     _maxSteps = prefs.getInt('api_max_steps') ?? 200;
     _disableMaxSteps = prefs.getBool('api_disable_max_steps') ?? false;
@@ -122,25 +130,17 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
     _useSystemPrompt = prefs.getBool('api_use_system_prompt') ?? true;
   }
 
-  Future<void> saveSettings({
-    required String apiKey,
-    String? baseUrl,
-    String? model,
-  }) async {
+  Future<void> saveSettings({String? apiKey, String? model}) async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Clean up the API key in case the user pasted "Bearer sk-..."
-    String cleanApiKey = apiKey.trim();
-    if (cleanApiKey.toLowerCase().startsWith('bearer ')) {
-      cleanApiKey = cleanApiKey.substring(7).trim();
-    }
-
-    _apiKey = cleanApiKey;
-    await prefs.setString('api_key', cleanApiKey);
-
-    if (baseUrl != null && baseUrl.isNotEmpty) {
-      _baseUrl = baseUrl;
-      await prefs.setString('api_base_url', baseUrl);
+    if (apiKey != null && apiKey.isNotEmpty) {
+      // Clean up the API key in case the user pasted "Bearer sk-..."
+      String cleanApiKey = apiKey.trim();
+      if (cleanApiKey.toLowerCase().startsWith('bearer ')) {
+        cleanApiKey = cleanApiKey.substring(7).trim();
+      }
+      _apiKey = cleanApiKey;
+      await prefs.setString('api_key', cleanApiKey);
     }
     if (model != null && model.isNotEmpty) {
       _model = model;
@@ -264,7 +264,7 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
             headers: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $_apiKey',
-              'HTTP-Referer': 'https://github.com/orailnoor/private-agent',
+              'HTTP-Referer': 'https://github.com/Tirso54/private-agent',
               'X-Title': 'PrivateAgent',
             },
             body: requestBody,
@@ -363,7 +363,7 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
       request.headers.addAll({
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $_apiKey',
-        'HTTP-Referer': 'https://github.com/orailnoor/private-agent',
+        'HTTP-Referer': 'https://github.com/Tirso54/private-agent',
         'X-Title': 'PrivateAgent',
       });
 
@@ -506,7 +506,7 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $_apiKey',
-                'HTTP-Referer': 'https://github.com/orailnoor/private-agent',
+                'HTTP-Referer': 'https://github.com/Tirso54/private-agent',
                 'X-Title': 'PrivateAgent',
               },
               body: jsonEncode({

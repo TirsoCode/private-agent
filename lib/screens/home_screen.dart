@@ -594,7 +594,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
-                          'API not configured. Tap Settings to add details.',
+                          'API key not embedded. Rebuild the app with the '
+                          'OPENROUTER_API_KEY define.',
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
