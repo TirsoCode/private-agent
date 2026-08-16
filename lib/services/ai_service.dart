@@ -18,45 +18,25 @@ class AiService {
   );
 
   static const String _defaultBaseUrl = 'https://openrouter.ai/api/v1';
-  static const String _defaultModel = 'openai/gpt-oss-20b:free';
+  static const String _defaultModel = 'nvidia/nemotron-nano-12b-v2-vl:free';
 
   /// Free model slugs that OpenRouter has removed. Any device still holding
   /// one of these (saved before removal) is reset to the current default.
-  static const Set<String> _deprecatedModels = {'openai/gpt-oss-120b:free'};
-  static const String nvidiaBaseUrl = 'https://integrate.api.nvidia.com/v1';
-  static const String nvidiaDefaultModel = 'z-ai/glm-5.2';
+  static const Set<String> _deprecatedModels = {
+    'openai/gpt-oss-120b:free',
+    'openai/gpt-oss-20b:free',
+    'nvidia/nemotron-3-ultra-550b-a55b:free',
+    'nvidia/nemotron-3-super-120b-a12b:free',
+    'nvidia/nemotron-3-nano-30b-a3b:free',
+    'google/gemma-4-31b-it:free',
+  };
 
-  /// Free, general-purpose chat endpoints verified in NVIDIA's NIM catalog.
-  /// The live /models response is intersected with this list so unavailable or
-  /// non-chat models never appear in PrivateAgent's NVIDIA model picker.
-  static const List<String> nvidiaFreeChatModels = [
-    'z-ai/glm-5.2',
-    'nvidia/nemotron-3-nano-30b-a3b',
-    'nvidia/nemotron-3-super-120b-a12b',
-    'nvidia/nemotron-3-ultra-550b-a55b',
-    'nvidia/nvidia-nemotron-nano-9b-v2',
-    'openai/gpt-oss-20b',
-    'openai/gpt-oss-120b',
-    'meta/llama-3.3-70b-instruct',
-    'meta/llama-3.2-3b-instruct',
-    'meta/llama-3.1-8b-instruct',
-    'meta/llama-3.1-70b-instruct',
-    'mistralai/mistral-nemotron',
-    'deepseek-ai/deepseek-v4-flash',
-    'deepseek-ai/deepseek-v4-pro',
+  /// The only models offered by the app: free OpenRouter endpoints.
+  static const List<String> freeChatModels = [
+    'nvidia/nemotron-nano-12b-v2-vl:free', // Nemotron Nano 2 VL 12B
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', // Nemotron 3 Nano Omni
+    'google/gemma-4-26b-a4b-it:free', // Gemma 4 26B A4B
   ];
-
-  static bool isNvidiaBaseUrl(String baseUrl) {
-    final uri = Uri.tryParse(baseUrl.trim());
-    return uri?.host.toLowerCase() == 'integrate.api.nvidia.com';
-  }
-
-  static List<String> filterNvidiaFreeModels(Iterable<String> models) {
-    final availableModels = models.toSet();
-    return nvidiaFreeChatModels
-        .where(availableModels.contains)
-        .toList(growable: false);
-  }
 
   String? _apiKey;
   String _baseUrl = _defaultBaseUrl;
@@ -202,11 +182,9 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
   bool get useSystemPrompt => _useSystemPrompt;
 
   int get _effectiveMaxTokens {
-    // GLM is a reasoning model. With the app's 1,024-token default it can
-    // consume the whole budget reasoning and finish without visible content.
-    if (isNvidiaBaseUrl(_baseUrl) &&
-        _model == nvidiaDefaultModel &&
-        _maxTokens < 4096) {
+    // Reasoning models can burn the whole 1,024-token default budget thinking
+    // and finish without visible content, so guarantee a larger minimum.
+    if (freeChatModels.contains(_model) && _maxTokens < 4096) {
       return 4096;
     }
     return _maxTokens;
@@ -473,7 +451,7 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
       if (finalResponse.isEmpty) {
         throw Exception(
           'The model finished without a visible answer. Increase Max Tokens '
-          'or try another NVIDIA model.',
+          'or try another model.',
         );
       }
       _conversationHistory.add({'role': 'assistant', 'content': finalResponse});
@@ -625,47 +603,5 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
       // Not JSON, it's plain text conversation
     }
     return null;
-  }
-
-  /// Fetches available models from the provider's /models endpoint
-  Future<List<String>> fetchAvailableModels(
-    String baseUrl,
-    String apiKey,
-  ) async {
-    try {
-      String cleanBaseUrl = baseUrl;
-      // Many providers host it at /models, but some require the base URL without /chat/completions logic
-      if (cleanBaseUrl.endsWith('/chat/completions')) {
-        cleanBaseUrl = cleanBaseUrl.replaceAll('/chat/completions', '');
-      }
-
-      final response = await http.get(
-        Uri.parse('$cleanBaseUrl/models'),
-        headers: {'Authorization': 'Bearer $apiKey'},
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        List<String> models;
-        if (data is Map && data.containsKey('data')) {
-          final modelsList = data['data'] as List;
-          models = modelsList.map((m) => m['id'].toString()).toList();
-        } else if (data is List) {
-          models = data.map((m) => m['id'].toString()).toList();
-        } else {
-          return [];
-        }
-
-        if (isNvidiaBaseUrl(cleanBaseUrl)) {
-          return filterNvidiaFreeModels(models);
-        }
-        models.sort();
-        return models;
-      }
-      return [];
-    } catch (e) {
-      print('Error fetching models: $e');
-      return [];
-    }
   }
 }

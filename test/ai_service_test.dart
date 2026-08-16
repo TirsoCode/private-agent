@@ -2,28 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:private_agent/services/ai_service.dart';
 
 void main() {
-  test('recognizes only the NVIDIA hosted API URL', () {
-    expect(
-      AiService.isNvidiaBaseUrl('https://integrate.api.nvidia.com/v1'),
-      isTrue,
-    );
-    expect(AiService.isNvidiaBaseUrl('https://api.deepseek.com'), isFalse);
-  });
-
-  test('NVIDIA model picker keeps only verified free chat models', () {
-    final models = AiService.filterNvidiaFreeModels([
-      'paid/partner-model',
-      'nvidia/nemotron-3-super-120b-a12b',
-      'nvidia/embed-qa-4',
-      'openai/gpt-oss-20b',
+  test('free model list offers only the three supported OpenRouter models', () {
+    expect(AiService.freeChatModels, [
+      'nvidia/nemotron-nano-12b-v2-vl:free',
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+      'google/gemma-4-26b-a4b-it:free',
     ]);
-
-    expect(models, ['nvidia/nemotron-3-super-120b-a12b', 'openai/gpt-oss-20b']);
   });
 
-  test('GLM is the default NVIDIA model', () {
-    expect(AiService.nvidiaDefaultModel, 'z-ai/glm-5.2');
-    expect(AiService.nvidiaFreeChatModels.first, 'z-ai/glm-5.2');
+  test('free model list contains the new default model', () {
+    expect(
+      AiService.freeChatModels,
+      contains('nvidia/nemotron-nano-12b-v2-vl:free'),
+    );
   });
 
   group('parseAction', () {
