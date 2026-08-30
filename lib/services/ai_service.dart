@@ -28,10 +28,7 @@ class AiService {
   static const Set<String> _deprecatedModels = {
     'openai/gpt-oss-120b:free',
     'openai/gpt-oss-20b:free',
-    'nvidia/nemotron-3-ultra-550b-a55b:free',
-    'nvidia/nemotron-3-super-120b-a12b:free',
     'nvidia/nemotron-3-nano-30b-a3b:free',
-    'google/gemma-4-31b-it:free',
   };
 
   /// Free models known to the app.
@@ -128,7 +125,10 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
     _apiKey = _envOpenRouterApiKey.isNotEmpty
         ? _envOpenRouterApiKey
         : prefs.getString('api_key');
-    _baseUrl = _defaultBaseUrl;
+    final savedBaseUrl = prefs.getString('api_base_url');
+    _baseUrl = (savedBaseUrl == null || savedBaseUrl.isEmpty)
+        ? _defaultBaseUrl
+        : _normalizeBaseUrl(savedBaseUrl);
     final savedModel = prefs.getString('api_model');
     _model =
         (savedModel == null ||
@@ -212,7 +212,11 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
     }
   }
 
-  Future<void> saveSettings({String? apiKey, String? model}) async {
+  Future<void> saveSettings({
+    String? apiKey,
+    String? model,
+    String? baseUrl,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
 
     if (apiKey != null && apiKey.isNotEmpty) {
@@ -228,6 +232,20 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
       _model = model;
       await prefs.setString('api_model', model);
     }
+    if (baseUrl != null && baseUrl.isNotEmpty) {
+      final normalized = _normalizeBaseUrl(baseUrl);
+      _baseUrl = normalized;
+      await prefs.setString('api_base_url', normalized);
+    }
+  }
+
+  /// Strip trailing slashes so building the `/chat/completions` suffix works.
+  static String _normalizeBaseUrl(String url) {
+    var trimmed = url.trim();
+    while (trimmed.endsWith('/')) {
+      trimmed = trimmed.substring(0, trimmed.length - 1);
+    }
+    return trimmed;
   }
 
   Future<void> saveMaxSteps(int steps) async {
@@ -259,7 +277,39 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
     await prefs.setBool('api_use_system_prompt', useSystemPrompt);
   }
 
-  bool get isConfigured => _apiKey != null && _apiKey!.isNotEmpty;
+  bool get isConfigured {
+    if (_apiKey != null && _apiKey!.isNotEmpty) return true;
+    // Local model servers (Ollama, LM Studio, llama.cpp...) need no API key.
+    return _isLocalEndpoint(_baseUrl);
+  }
+
+  /// True when the target host looks like a local/private model server.
+  bool _isLocalEndpoint(String url) {
+    try {
+      final host = Uri.parse(_normalizeBaseUrl(url)).host.toLowerCase();
+      return host == 'localhost' ||
+          host == '127.0.0.1' ||
+          host == '::1' ||
+          host.startsWith('192.168.') ||
+          host.startsWith('10.') ||
+          host.startsWith('172.') ||
+          host.endsWith('.local');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Throws only when the user must enter a key or pick a local endpoint.
+  void _ensureConfigured() {
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      if (_isLocalEndpoint(_baseUrl)) return;
+      throw Exception(
+        'No API key configured. Add a key or point the Base URL to a local '
+        'model server (e.g. http://localhost:11434).',
+      );
+    }
+  }
+
   String get baseUrl => _baseUrl;
   String get model => _model;
   String get apiKey => _apiKey ?? '';
@@ -302,10 +352,7 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
 
   /// Send a message to the AI and get a response.
   Future<String> sendMessage(String message, {bool isAgentMode = true}) async {
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      throw Exception('API Key is not configured. Please go to Settings.');
-    }
-
+    _ensureConfigured();
     // Add ONLY the text to the persistent conversation history to save tokens.
     _conversationHistory.add({'role': 'user', 'content': message});
 
@@ -350,7 +397,8 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
             Uri.parse(requestUrl),
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer $_apiKey',
+              if (_apiKey != null && _apiKey!.isNotEmpty)
+                'Authorization': 'Bearer $_apiKey',
               'HTTP-Referer': 'https://github.com/Tirso54/private-agent',
               'X-Title': 'PrivateAgent',
             },
@@ -417,9 +465,7 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
     String message, {
     bool isAgentMode = true,
   }) async* {
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      throw Exception('API Key is not configured. Please go to Settings.');
-    }
+    _ensureConfigured();
 
     _conversationHistory.add({'role': 'user', 'content': message});
 
@@ -449,7 +495,8 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
       final request = http.Request('POST', Uri.parse(requestUrl));
       request.headers.addAll({
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_apiKey',
+        if (_apiKey != null && _apiKey!.isNotEmpty)
+          'Authorization': 'Bearer $_apiKey',
         'HTTP-Referer': 'https://github.com/Tirso54/private-agent',
         'X-Title': 'PrivateAgent',
       });
@@ -563,9 +610,7 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
   /// Send a task execution message — no conversation history, low temperature, limited tokens.
   /// This is much faster and cheaper than sendMessage.
   Future<AiResponse> sendTaskMessage(String systemPrompt, String prompt) async {
-    if (_apiKey == null || _apiKey!.isEmpty) {
-      throw Exception('API Key is not configured. Please go to Settings.');
-    }
+    _ensureConfigured();
 
     int maxRetries = 4;
     int currentTry = 0;
@@ -592,7 +637,8 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
               Uri.parse(requestUrl),
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer $_apiKey',
+                if (_apiKey != null && _apiKey!.isNotEmpty)
+                  'Authorization': 'Bearer $_apiKey',
                 'HTTP-Referer': 'https://github.com/Tirso54/private-agent',
                 'X-Title': 'PrivateAgent',
               },

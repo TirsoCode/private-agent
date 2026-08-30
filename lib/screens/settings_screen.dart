@@ -33,6 +33,8 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen>
     with WidgetsBindingObserver {
   late TextEditingController _modelController;
+  late TextEditingController _baseUrlController;
+  late TextEditingController _apiKeyController;
   late TextEditingController _telegramTokenController;
   bool _telegramEnabled = false;
   double _maxSteps = 200;
@@ -53,6 +55,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _modelController = TextEditingController(text: widget.aiService.model);
+    _baseUrlController = TextEditingController(text: widget.aiService.baseUrl);
+    _apiKeyController = TextEditingController(text: widget.aiService.apiKey);
     _telegramTokenController = TextEditingController(
       text: widget.telegramService.botToken,
     );
@@ -68,6 +72,8 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     // Auto-save listeners
     _modelController.addListener(_autoSave);
+    _baseUrlController.addListener(_autoSave);
+    _apiKeyController.addListener(_autoSave);
     _telegramTokenController.addListener(_autoSave);
     _maxTokensController.addListener(_autoSave);
 
@@ -105,9 +111,13 @@ class _SettingsScreenState extends State<SettingsScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _modelController.removeListener(_autoSave);
+    _baseUrlController.removeListener(_autoSave);
+    _apiKeyController.removeListener(_autoSave);
     _telegramTokenController.removeListener(_autoSave);
     _maxTokensController.removeListener(_autoSave);
     _modelController.dispose();
+    _baseUrlController.dispose();
+    _apiKeyController.dispose();
     _telegramTokenController.dispose();
     _maxTokensController.dispose();
     super.dispose();
@@ -151,8 +161,11 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   void _autoSave() {
-    widget.aiService.saveSettings(model: _modelController.text.trim());
-
+    widget.aiService.saveSettings(
+      model: _modelController.text.trim(),
+      baseUrl: _baseUrlController.text.trim(),
+      apiKey: _apiKeyController.text.trim(),
+    );
     widget.telegramService.saveSettings(
       botToken: _telegramTokenController.text.trim(),
       isEnabled: _telegramEnabled,
@@ -171,6 +184,66 @@ class _SettingsScreenState extends State<SettingsScreen>
   void _applyModel(String model) {
     _modelController.text = model;
     widget.aiService.saveSettings(model: model);
+  }
+
+  void _applyBaseUrl(String baseUrl) {
+    _baseUrlController.text = baseUrl;
+    widget.aiService.saveSettings(baseUrl: baseUrl);
+  }
+
+  void _applyLocalPreset(String baseUrl) {
+    _applyBaseUrl(baseUrl);
+  }
+
+  Future<void> _addCustomEndpoint() async {
+    final baseUrlController = TextEditingController();
+    final apiKeyController = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Conectar a un proveedor'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: baseUrlController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Base URL',
+                hintText: 'https://api.mi-servidor.com/v1',
+                prefixIcon: Icon(Icons.link_rounded, size: 18),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: apiKeyController,
+              decoration: const InputDecoration(
+                labelText: 'API Key (opcional)',
+                hintText: 'sk-...',
+                prefixIcon: Icon(Icons.key_rounded, size: 18),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(context, baseUrlController.text.trim().isNotEmpty),
+            child: const Text('Conectar'),
+          ),
+        ],
+      ),
+    );
+    if (saved == true) {
+      _applyBaseUrl(baseUrlController.text.trim());
+      if (apiKeyController.text.trim().isNotEmpty) {
+        widget.aiService.saveSettings(apiKey: apiKeyController.text.trim());
+      }
+    }
   }
 
   Future<void> _addCustomModel() async {
@@ -411,6 +484,106 @@ class _SettingsScreenState extends State<SettingsScreen>
             ],
           ),
 
+          // 1.5 Provider Card
+          _buildSettingsCard(
+            icon: Icons.dns_outlined,
+            title: 'Proveedor de IA',
+            subtitle: 'Conecta a OpenRouter, un servidor local o cualquier API',
+            isDark: isDark,
+            children: [
+              const Text(
+                'Presets locales',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  ActionChip(
+                    avatar: const Icon(Icons.local_fire_department, size: 16),
+                    label: const Text(
+                      'Ollama',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () =>
+                        _applyLocalPreset('http://10.1.1.1:11434/v1'),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.computer_rounded, size: 16),
+                    label: const Text(
+                      'LM Studio',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () =>
+                        _applyLocalPreset('http://10.1.1.1:1234/v1'),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.cloud_rounded, size: 16),
+                    label: const Text(
+                      'OpenRouter',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => _applyLocalPreset(
+                      'https://openrouter.ai/api/v1',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _baseUrlController,
+                decoration: _buildInputDecoration(
+                  labelText: 'Base URL',
+                  hintText: 'https://openrouter.ai/api/v1',
+                  prefixIcon: const Icon(Icons.link_rounded, size: 18),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _apiKeyController,
+                decoration: _buildInputDecoration(
+                  labelText: 'API Key (opcional)',
+                  hintText: 'sk-...',
+                  prefixIcon: const Icon(Icons.key_rounded, size: 18),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _addCustomEndpoint,
+                      icon: const Icon(Icons.add_link_rounded, size: 18),
+                      label: const Text('Conectar proveedor'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Restablecer a OpenRouter',
+                    onPressed: _baseUrlController.text ==
+                            'https://openrouter.ai/api/v1'
+                        ? null
+                        : () => _applyLocalPreset('https://openrouter.ai/api/v1'),
+                    icon: const Icon(Icons.restart_alt_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Los servidores locales (Ollama, LM Studio) no necesitan API key. '
+                'Con "Conectar proveedor" puedes usar cualquier API compatible '
+                'con OpenAI escribiendo su URL y opcionalmente una clave.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF475569),
+                ),
+              ),
+            ],
+          ),
+
           // 2. AI Model Card
           _buildSettingsCard(
             icon: Icons.smart_toy_outlined,
@@ -518,9 +691,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'La API key de OpenRouter ya está configurada en tiempo '
-                        'de build. Puedes elegir cualquier modelo gratuito de la '
-                        'lista o añadir manualmente cualquier modelo de IA.',
+                        'Puedes elegir cualquier modelo gratuito de la lista, '
+                        'añadir cualquier modelo de IA manualmente, o conectar '
+                        'un servidor local de la tarjeta "Proveedor de IA".',
                         style: TextStyle(fontSize: 12, height: 1.4),
                       ),
                     ),
