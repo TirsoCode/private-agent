@@ -20,6 +20,9 @@ class AiService {
   static const String _defaultBaseUrl = 'https://openrouter.ai/api/v1';
   static const String _defaultModel = 'nvidia/nemotron-nano-12b-v2-vl:free';
 
+  /// Endpoint that lists every model available on OpenRouter.
+  static const String _modelsUrl = 'https://openrouter.ai/api/v1/models';
+
   /// Free model slugs that OpenRouter has removed. Any device still holding
   /// one of these (saved before removal) is reset to the current default.
   static const Set<String> _deprecatedModels = {
@@ -31,11 +34,32 @@ class AiService {
     'google/gemma-4-31b-it:free',
   };
 
-  /// The only models offered by the app: free OpenRouter endpoints.
+  /// Free models known to the app.
+  ///
+  /// This list serves as a local fallback/cache when the OpenRouter models
+  /// endpoint cannot be reached, and to recognize free endpoints regardless of
+  /// a `:free` suffix. The authoritative, always-up-to-date set is fetched at
+  /// runtime via [fetchFreeModels].
   static const List<String> freeChatModels = [
-    'nvidia/nemotron-nano-12b-v2-vl:free', // Nemotron Nano 2 VL 12B
-    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', // Nemotron 3 Nano Omni
+    'cohere/north-mini-code:free',
+    'dots-studio/dots-3-note-preview:free',
     'google/gemma-4-26b-a4b-it:free', // Gemma 4 26B A4B
+    'google/gemma-4-31b-it:free',
+    'inclusionai/ling-3.0-flash-fin:free',
+    'liquid/lfm-2.5-2.6b:free',
+    'minimax/minimax-m2.7:free',
+    'minimax/minimax-m3:free',
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', // Nemotron 3 Nano Omni
+    'nvidia/nemotron-3-super-120b-a12b:free',
+    'nvidia/nemotron-3-ultra-550b-a55b:free',
+    'nvidia/nemotron-3.5-content-safety:free',
+    'nvidia/nemotron-3.5-lightning:free',
+    'nvidia/nemotron-nano-12b-v2-vl:free', // Nemotron Nano 2 VL 12B
+    'poolside/laguna-s-2.1:free',
+    'poolside/laguna-xs-2.1:free',
+    'thinkingmachines/inkling-small:free',
+    'thinkingmachines/inkling:free',
+    'z-ai/glm-5.2:free',
   ];
 
   String? _apiKey;
@@ -120,6 +144,74 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
     _useSystemPrompt = prefs.getBool('api_use_system_prompt') ?? true;
   }
 
+  /// Fetches the list of free models from OpenRouter.
+  ///
+  /// Consults the public models endpoint and filters for endpoint IDs ending in
+  /// `:free` (remembering to also accept models whose pricing is zero even if
+  /// they lack the suffix). Returns a deduplicated, sorted list of model IDs.
+  /// A model is considered free when both its prompt and completion prices are 0.
+  Future<List<String>> fetchFreeModels() async {
+    try {
+      final response = await http
+          .get(Uri.parse(_modelsUrl))
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode != 200) {
+        developer.log(
+          'fetchFreeModels: HTTP ${response.statusCode}: ${response.body}',
+          name: 'AiService',
+        );
+        return freeChatModels;
+      }
+
+      final data = jsonDecode(response.body);
+      if (data is! Map<String, dynamic> || data['data'] is! List) {
+        developer.log(
+          'fetchFreeModels: unexpected payload shape',
+          name: 'AiService',
+        );
+        return freeChatModels;
+      }
+
+      final result = <String>{};
+      for (final item in data['data'] as List) {
+        if (item is! Map<String, dynamic>) continue;
+        final modelId = item['id'];
+        if (modelId is! String || modelId.isEmpty) continue;
+
+        final isFreeSuffix = modelId.endsWith(':free');
+        final pricing = item['pricing'];
+        final promptPrice = pricing is Map<String, dynamic>
+            ? pricing['prompt']?.toString()
+            : null;
+        final completionPrice = pricing is Map<String, dynamic>
+            ? pricing['completion']?.toString()
+            : null;
+        final isZeroPriced = _isZeroPrice(promptPrice) &&
+            _isZeroPrice(completionPrice);
+
+        if (isFreeSuffix || isZeroPriced) {
+          result.add(modelId);
+        }
+      }
+
+      final list = result.toList()..sort();
+      return list.isEmpty ? freeChatModels : list;
+    } catch (e) {
+      developer.log('fetchFreeModels failed: $e', name: 'AiService');
+      return freeChatModels;
+    }
+  }
+
+  static bool _isZeroPrice(String? raw) {
+    if (raw == null || raw.isEmpty) return false;
+    try {
+      return double.parse(raw) == 0.0;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> saveSettings({String? apiKey, String? model}) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -184,10 +276,17 @@ Answer questions, explain concepts, brainstorm, write emails/messages, and chat 
   int get _effectiveMaxTokens {
     // Reasoning models can burn the whole 1,024-token default budget thinking
     // and finish without visible content, so guarantee a larger minimum.
-    if (freeChatModels.contains(_model) && _maxTokens < 4096) {
+    if (_isFreeModel(_model) && _maxTokens < 4096) {
       return 4096;
     }
     return _maxTokens;
+  }
+
+  /// True when the current model is a free OpenRouter endpoint (either a
+  /// `:free` slug or one of the hardcoded free options).
+  bool _isFreeModel(String modelId) {
+    if (modelId.endsWith(':free')) return true;
+    return freeChatModels.contains(modelId);
   }
 
   void clearHistory() {

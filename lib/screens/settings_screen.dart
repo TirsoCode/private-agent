@@ -43,6 +43,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool _useSystemPrompt = true;
   bool _floatingIconEnabled = false;
   bool _isOverlayPermissionGranted = false;
+  List<String> _freeModels = [];
+  bool _loadingFreeModels = false;
 
   final Map<String, PermissionStatus> _permissions = {};
 
@@ -73,6 +75,19 @@ class _SettingsScreenState extends State<SettingsScreen>
     if (FeatureFlags.floatingOverlayEnabled) {
       _checkOverlayStatus();
     }
+    _loadFreeModels();
+  }
+
+  Future<void> _loadFreeModels() async {
+    if (mounted) {
+      setState(() => _loadingFreeModels = true);
+    }
+    final models = await widget.aiService.fetchFreeModels();
+    if (!mounted) return;
+    setState(() {
+      _freeModels = models;
+      _loadingFreeModels = false;
+    });
   }
 
   Future<void> _checkOverlayStatus() async {
@@ -151,6 +166,43 @@ class _SettingsScreenState extends State<SettingsScreen>
       useScreenCompression: _useScreenCompression,
       useSystemPrompt: _useSystemPrompt,
     );
+  }
+
+  void _applyModel(String model) {
+    _modelController.text = model;
+    widget.aiService.saveSettings(model: model);
+  }
+
+  Future<void> _addCustomModel() async {
+    final controller = TextEditingController();
+    final model = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Añadir modelo'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'ID del modelo',
+            hintText: 'organizacion/modelo',
+            prefixIcon: Icon(Icons.smart_toy_rounded, size: 18),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Añadir'),
+          ),
+        ],
+      ),
+    );
+    if (model != null && model.isNotEmpty) {
+      _applyModel(model);
+    }
   }
 
   Widget _buildSettingsCard({
@@ -366,46 +418,90 @@ class _SettingsScreenState extends State<SettingsScreen>
             subtitle: 'AI engine is preconfigured with OpenRouter',
             isDark: isDark,
             children: [
-              TextField(
-                controller: _modelController,
-                decoration: _buildInputDecoration(
-                  labelText: 'Model',
-                  hintText: 'nvidia/nemotron-nano-12b-v2-vl:free',
-                  prefixIcon: const Icon(Icons.smart_toy_rounded, size: 18),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  ActionChip(
-                    avatar: const Icon(Icons.bolt_rounded, size: 16),
-                    label: const Text(
-                      'Nemotron Nano 2 VL (free)',
-                      style: TextStyle(fontSize: 11),
+                  Expanded(
+                    child: TextField(
+                      controller: _modelController,
+                      decoration: _buildInputDecoration(
+                        labelText: 'Model',
+                        hintText: 'organizacion/modelo',
+                        prefixIcon: const Icon(
+                          Icons.smart_toy_rounded,
+                          size: 18,
+                        ),
+                      ),
                     ),
-                    onPressed: () => _modelController.text =
-                        'nvidia/nemotron-nano-12b-v2-vl:free',
                   ),
-                  ActionChip(
-                    label: const Text(
-                      'Nemotron 3 Nano Omni (free)',
-                      style: TextStyle(fontSize: 11),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: 'Añadir cualquier modelo de IA',
+                    child: FilledButton.tonalIcon(
+                      onPressed: _addCustomModel,
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Añadir'),
                     ),
-                    onPressed: () => _modelController.text =
-                        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-                  ),
-                  ActionChip(
-                    label: const Text(
-                      'Gemma 4 26B (free)',
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    onPressed: () => _modelController.text =
-                        'google/gemma-4-26b-a4b-it:free',
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Modelos gratuitos de OpenRouter',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _loadingFreeModels ? null : _loadFreeModels,
+                    icon: _loadingFreeModels
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('Actualizar'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              if (_loadingFreeModels)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else if (_freeModels.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'No se pudieron cargar los modelos gratuitos. '
+                    'Comprueba tu conexión y pulsa "Actualizar".',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final model in _freeModels)
+                      ActionChip(
+                        label: Text(
+                          model,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        onPressed: () => _applyModel(model),
+                      ),
+                  ],
+                ),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -422,8 +518,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'The OpenRouter API key is already configured at build '
-                        'time. You can type any model ID manually.',
+                        'La API key de OpenRouter ya está configurada en tiempo '
+                        'de build. Puedes elegir cualquier modelo gratuito de la '
+                        'lista o añadir manualmente cualquier modelo de IA.',
                         style: TextStyle(fontSize: 12, height: 1.4),
                       ),
                     ),
