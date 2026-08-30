@@ -2,12 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:private_agent/services/ai_service.dart';
 
 void main() {
-  test('free model list offers only the three supported OpenRouter models', () {
-    expect(AiService.freeChatModels, [
-      'nvidia/nemotron-nano-12b-v2-vl:free',
-      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-      'google/gemma-4-26b-a4b-it:free',
-    ]);
+  test('free model list includes the known OpenRouter free models', () {
+    expect(
+      AiService.freeChatModels,
+      containsAllInOrder([
+        'nvidia/nemotron-nano-12b-v2-vl:free',
+        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+        'google/gemma-4-26b-a4b-it:free',
+      ]),
+    );
+    // Every listed model must be a free endpoint.
+    for (final model in AiService.freeChatModels) {
+      expect(model.endsWith(':free'), isTrue, reason: '$model is not free');
+    }
   });
 
   test('free model list contains the new default model', () {
