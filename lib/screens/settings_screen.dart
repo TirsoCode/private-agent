@@ -195,35 +195,83 @@ class _SettingsScreenState extends State<SettingsScreen>
     _applyBaseUrl(baseUrl);
   }
 
+  void _applyCustomProvider(Map<String, String> provider) {
+    _applyBaseUrl(provider['baseUrl']!);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${provider['name']} conectado. Introduce tu API key y '
+          'selecciona un modelo.',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  IconData _providerIcon(String name) {
+    switch (name) {
+      case 'OpenAI':
+        return Icons.auto_awesome;
+      case 'Anthropic':
+        return Icons.psychology;
+      case 'Google AI':
+        return Icons.search;
+      case 'Groq':
+        return Icons.bolt;
+      case 'Mistral':
+        return Icons.air;
+      case 'DeepSeek':
+        return Icons.water_drop;
+      case 'Together AI':
+        return Icons.hub;
+      case 'Fireworks':
+        return Icons.local_fire_department;
+      default:
+        return Icons.cloud;
+    }
+  }
+
   Future<void> _addCustomEndpoint() async {
     final baseUrlController = TextEditingController();
     final apiKeyController = TextEditingController();
+    final modelController = TextEditingController();
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Conectar a un proveedor'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: baseUrlController,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Base URL',
-                hintText: 'https://api.mi-servidor.com/v1',
-                prefixIcon: Icon(Icons.link_rounded, size: 18),
+        title: const Text('Proveedor personalizado'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: baseUrlController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Base URL *',
+                  hintText: 'https://api.mi-servidor.com/v1',
+                  prefixIcon: Icon(Icons.link_rounded, size: 18),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: apiKeyController,
-              decoration: const InputDecoration(
-                labelText: 'API Key (opcional)',
-                hintText: 'sk-...',
-                prefixIcon: Icon(Icons.key_rounded, size: 18),
+              const SizedBox(height: 12),
+              TextField(
+                controller: apiKeyController,
+                decoration: const InputDecoration(
+                  labelText: 'API Key',
+                  hintText: 'sk-...',
+                  prefixIcon: Icon(Icons.key_rounded, size: 18),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: modelController,
+                decoration: const InputDecoration(
+                  labelText: 'Modelo (opcional)',
+                  hintText: 'organizacion/modelo',
+                  prefixIcon: Icon(Icons.smart_toy_rounded, size: 18),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -231,8 +279,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.pop(context, baseUrlController.text.trim().isNotEmpty),
+            onPressed: () => Navigator.pop(
+                context, baseUrlController.text.trim().isNotEmpty),
             child: const Text('Conectar'),
           ),
         ],
@@ -242,6 +290,9 @@ class _SettingsScreenState extends State<SettingsScreen>
       _applyBaseUrl(baseUrlController.text.trim());
       if (apiKeyController.text.trim().isNotEmpty) {
         widget.aiService.saveSettings(apiKey: apiKeyController.text.trim());
+      }
+      if (modelController.text.trim().isNotEmpty) {
+        _applyModel(modelController.text.trim());
       }
     }
   }
@@ -527,6 +578,39 @@ class _SettingsScreenState extends State<SettingsScreen>
                     onPressed: () => _applyLocalPreset(
                       'https://openrouter.ai/api/v1',
                     ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Proveedores externos',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final provider in AiService.customProviders)
+                    ActionChip(
+                      avatar: Icon(
+                        _providerIcon(provider['name']!),
+                        size: 16,
+                      ),
+                      label: Text(
+                        provider['name']!,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      onPressed: () =>
+                          _applyCustomProvider(provider),
+                    ),
+                  ActionChip(
+                    avatar: const Icon(Icons.edit_rounded, size: 16),
+                    label: const Text(
+                      'Personalizado',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: _addCustomEndpoint,
                   ),
                 ],
               ),

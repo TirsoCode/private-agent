@@ -40,23 +40,70 @@ class AiService {
   static const List<String> freeChatModels = [
     'cohere/north-mini-code:free',
     'dots-studio/dots-3-note-preview:free',
-    'google/gemma-4-26b-a4b-it:free', // Gemma 4 26B A4B
+    'google/gemma-4-26b-a4b-it:free',
     'google/gemma-4-31b-it:free',
     'inclusionai/ling-3.0-flash-fin:free',
     'liquid/lfm-2.5-2.6b:free',
     'minimax/minimax-m2.7:free',
     'minimax/minimax-m3:free',
-    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', // Nemotron 3 Nano Omni
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
     'nvidia/nemotron-3-super-120b-a12b:free',
     'nvidia/nemotron-3-ultra-550b-a55b:free',
     'nvidia/nemotron-3.5-content-safety:free',
     'nvidia/nemotron-3.5-lightning:free',
-    'nvidia/nemotron-nano-12b-v2-vl:free', // Nemotron Nano 2 VL 12B
+    'nvidia/nemotron-nano-12b-v2-vl:free',
+    'openrouter/free',
     'poolside/laguna-s-2.1:free',
     'poolside/laguna-xs-2.1:free',
     'thinkingmachines/inkling-small:free',
     'thinkingmachines/inkling:free',
     'z-ai/glm-5.2:free',
+  ];
+
+  /// Custom provider presets for non-OpenRouter APIs.
+  static const List<Map<String, String>> customProviders = [
+    {
+      'name': 'OpenAI',
+      'baseUrl': 'https://api.openai.com/v1',
+      'models': 'gpt-4o,gpt-4o-mini,gpt-4-turbo,gpt-3.5-turbo',
+    },
+    {
+      'name': 'Anthropic',
+      'baseUrl': 'https://api.anthropic.com/v1',
+      'models':
+          'claude-opus-4-20250514,claude-sonnet-4-20250514,claude-3-5-haiku-20241022',
+    },
+    {
+      'name': 'Google AI',
+      'baseUrl': 'https://generativelanguage.googleapis.com/v1beta',
+      'models': 'gemini-2.5-pro,gemini-2.5-flash,gemini-2.0-flash',
+    },
+    {
+      'name': 'Groq',
+      'baseUrl': 'https://api.groq.com/openai/v1',
+      'models':
+          'llama-3.3-70b-versatile,llama-3.1-8b-instant,mixtral-8x7b-32768',
+    },
+    {
+      'name': 'Mistral',
+      'baseUrl': 'https://api.mistral.ai/v1',
+      'models': 'mistral-large-latest,mistral-small-latest,codestral-latest',
+    },
+    {
+      'name': 'DeepSeek',
+      'baseUrl': 'https://api.deepseek.com/v1',
+      'models': 'deepseek-chat,deepseek-reasoner',
+    },
+    {
+      'name': 'Together AI',
+      'baseUrl': 'https://api.together.xyz/v1',
+      'models': 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    },
+    {
+      'name': 'Fireworks',
+      'baseUrl': 'https://api.fireworks.ai/inference/v1',
+      'models': 'accounts/fireworks/models/llama-v3p3-70b-instruct',
+    },
   ];
 
   String? _apiKey;

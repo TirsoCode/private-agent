@@ -9,11 +9,13 @@ void main() {
         'nvidia/nemotron-nano-12b-v2-vl:free',
         'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
         'google/gemma-4-26b-a4b-it:free',
+        'openrouter/free',
       ]),
     );
     // Every listed model must be a free endpoint.
     for (final model in AiService.freeChatModels) {
-      expect(model.endsWith(':free'), isTrue, reason: '$model is not free');
+      expect(model.endsWith(':free') || model == 'openrouter/free', isTrue,
+          reason: '$model is not free');
     }
   });
 
