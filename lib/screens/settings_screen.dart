@@ -558,7 +558,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                       style: TextStyle(fontSize: 11),
                     ),
                     onPressed: () =>
-                        _applyLocalPreset('http://10.1.1.1:11434/v1'),
+                        _applyLocalPreset('http://localhost:11434/v1'),
                   ),
                   ActionChip(
                     avatar: const Icon(Icons.computer_rounded, size: 16),
@@ -567,7 +567,17 @@ class _SettingsScreenState extends State<SettingsScreen>
                       style: TextStyle(fontSize: 11),
                     ),
                     onPressed: () =>
-                        _applyLocalPreset('http://10.1.1.1:1234/v1'),
+                        _applyLocalPreset('http://localhost:1234/v1'),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.terminal_rounded, size: 16),
+                    label: const Text(
+                      'Termux',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () => _applyLocalPreset(
+                      'http://localhost:8080/v1',
+                    ),
                   ),
                   ActionChip(
                     avatar: const Icon(Icons.cloud_rounded, size: 16),
