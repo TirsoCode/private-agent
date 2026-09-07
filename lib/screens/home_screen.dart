@@ -17,6 +17,7 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../main.dart';
 import '../config/feature_flags.dart';
 import '../config/responsive.dart';
+import '../services/crash_log.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -61,14 +62,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _initServices() async {
-    await _aiService.init();
-    await _notificationService.requestPermission();
-    await _voiceService.init();
-    await _telegramService.init();
-    await _actionHandler.shizuku.checkAvailability();
+    await _guard(() async => _aiService.init(), 'aiService.init');
+    await _guard(
+      () async => _notificationService.requestPermission(),
+      'notificationService.requestPermission',
+    );
+    await _guard(() async => _voiceService.init(), 'voiceService.init');
+    await _guard(() async => _telegramService.init(), 'telegramService.init');
+    await _guard(
+      () async => _actionHandler.shizuku.checkAvailability(),
+      'shizuku.checkAvailability',
+    );
 
     if (mounted) {
       setState(() {});
+    }
+  }
+
+  Future<void> _guard(Future<void> Function() fn, String tag) async {
+    try {
+      await fn();
+    } catch (e, st) {
+      CrashLog.record(e, st, tag);
     }
   }
 

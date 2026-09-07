@@ -20,6 +20,33 @@ class MainActivity : FlutterActivity() {
     private var eventSink: EventChannel.EventSink? = null
     private var overlayView: View? = null
 
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        installCrashLogger()
+        super.onCreate(savedInstanceState)
+    }
+
+    /// Writes every uncaught Java exception to the app cache dir so the Dart
+    /// layer can surface it in a dialog on the next successful launch.
+    private fun installCrashLogger() {
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val writer = java.io.StringWriter()
+                throwable.printStackTrace(java.io.PrintWriter(writer))
+                val text = writer.toString()
+                android.util.Log.e("PrivateAgentCrash", text)
+                val stamp = java.text.SimpleDateFormat(
+                    "yyyy-MM-dd HH:mm:ss", java.util.Locale.US
+                ).format(java.util.Date())
+                val file = java.io.File(cacheDir, "private_agent_native_crash.txt")
+                file.appendText("[$stamp]\n$text\n---\n")
+            } catch (ignored: Throwable) {
+            }
+            // Let the system default handler finish the job (show the dialog and kill the process).
+            previous?.uncaughtException(thread, throwable)
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 

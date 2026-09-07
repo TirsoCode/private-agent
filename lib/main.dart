@@ -8,6 +8,7 @@ import 'config/responsive.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'overlay_main.dart';
+import 'services/crash_log.dart';
 
 @pragma("vm:entry-point")
 void overlayMain() {
@@ -42,38 +43,75 @@ final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 
 void Function(String task)? onOverlayTask;
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (FeatureFlags.floatingOverlayEnabled) {
-    FlutterOverlayWindow.overlayListener.listen((event) {
-      log("Main app received from overlay: $event");
-      if (event is String && event.trim().isNotEmpty) {
-        if (onOverlayTask != null) {
-          onOverlayTask!(event.trim());
-        } else {
-          log("Warning: overlay task received but no handler registered yet");
+  runZonedGuarded(() async {
+    FlutterError.onError = (details) {
+      CrashLog.record(
+        details.exception,
+        details.stack,
+        'FlutterError',
+      );
+      FlutterError.presentError(details);
+    };
+
+    PlatformDispatcher.instance.onError = (error, stack) {
+      CrashLog.record(error, stack, 'platform');
+      return true;
+    };
+
+    if (FeatureFlags.floatingOverlayEnabled) {
+      FlutterOverlayWindow.overlayListener.listen((event) {
+        log("Main app received from overlay: $event");
+        if (event is String && event.trim().isNotEmpty) {
+          if (onOverlayTask != null) {
+            onOverlayTask!(event.trim());
+          } else {
+            log("Warning: overlay task received but no handler registered yet");
+          }
         }
+      });
+    }
+
+    bool onboardingCompleted = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final themeStr = prefs.getString('themeMode');
+      if (themeStr == 'dark') {
+        themeNotifier.value = ThemeMode.dark;
+      } else {
+        themeNotifier.value = ThemeMode.light;
       }
-    });
-  }
+      onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+    } catch (e, st) {
+      CrashLog.record(e, st, 'main_prefs');
+      onboardingCompleted = false;
+    }
 
-  final prefs = await SharedPreferences.getInstance();
-  final themeStr = prefs.getString('themeMode');
-  if (themeStr == 'dark') {
-    themeNotifier.value = ThemeMode.dark;
-  } else {
-    themeNotifier.value = ThemeMode.light;
-  }
-
-  final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
-
-  runApp(PrivateAgentApp(onboardingCompleted: onboardingCompleted));
+    runApp(PrivateAgentApp(onboardingCompleted: onboardingCompleted));
+  }, (error, stack) {
+    CrashLog.record(error, stack, 'zone');
+  });
 }
 
-class PrivateAgentApp extends StatelessWidget {
+class PrivateAgentApp extends StatefulWidget {
   final bool onboardingCompleted;
   const PrivateAgentApp({super.key, required this.onboardingCompleted});
+
+  @override
+  State<PrivateAgentApp> createState() => _PrivateAgentAppState();
+}
+
+class _PrivateAgentAppState extends State<PrivateAgentApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      CrashLog.showRecoveryDialogIfNeeded(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +223,7 @@ class PrivateAgentApp extends StatelessWidget {
               ),
             ),
           ),
-          home: onboardingCompleted
+          home: widget.onboardingCompleted
               ? const HomeScreen()
               : const OnboardingScreen(),
         );
