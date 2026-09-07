@@ -41,12 +41,12 @@ jobs:
           mkdir -p "$HOME/.android"
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$HOME/.android/release.jks"
-            cat > android/key.properties <<EOF
-storePassword=$KEYSTORE_PASSWORD
-keyPassword=$KEY_PASSWORD
-keyAlias=$KEY_ALIAS
-storeFile=$HOME/.android/release.jks
-EOF
+            {
+              printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+              printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+              printf 'keyAlias=%s\n' "$KEY_ALIAS"
+              printf 'storeFile=%s\n' "$HOME/.android/release.jks"
+            } > android/key.properties
             echo "Release signing configured."
           else
             echo "No keystore secrets set; building with debug signing for now."
