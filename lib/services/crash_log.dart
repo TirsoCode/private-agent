@@ -70,6 +70,19 @@ class CrashLog {
     }
   }
 
+  /// Records that the Flutter UI actually reached its first frame. The native
+  /// side uses this to detect "the app died before rendering" (engine-abort)
+  /// cases that generate no Java exception to write.
+  static void markBootOk() {
+    try {
+      final f = File(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}boot_ok.txt',
+      );
+      f.createSync(recursive: true);
+      f.writeAsStringSync(DateTime.now().toIso8601String());
+    } catch (_) {}
+  }
+
   /// Shows a dialog with the last recorded crash, if any. Called once after
   /// the first frame so the user can screenshot the stack trace instead of
   /// (or in addition to) the "app keeps stopping" system dialog.

@@ -111,6 +111,7 @@ class _PrivateAgentAppState extends State<PrivateAgentApp> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      CrashLog.markBootOk();
       CrashLog.showRecoveryDialogIfNeeded(context);
     });
   }

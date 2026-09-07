@@ -22,11 +22,52 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         installCrashLogger()
+        // If a previous launch died, show the report before touching Flutter.
+        // Always renders: this screen is pure native code.
+        if (shouldShowCrashReport()) {
+            startActivity(android.content.Intent(this, CrashReportActivity::class.java))
+            finish()
+            return
+        }
+        markBootAttempt()
         super.onCreate(savedInstanceState)
     }
 
-    /// Writes every uncaught Java exception to the app cache dir so the Dart
-    /// layer can surface it in a dialog on the next successful launch.
+    private fun shouldShowCrashReport(): Boolean {
+        try {
+            if (CrashReportActivity.pendingReport(this) != null) return true
+            // No Java crash file, but multiple attempts without a first frame
+            // means the engine died before Flutter could render.
+            val bootFile = java.io.File(cacheDir, "boot_marks.txt")
+            val bootOk = java.io.File(cacheDir, "boot_ok.txt")
+            if (bootOk.exists()) return false
+            if (bootFile.exists()) {
+                val attempts = bootFile.readText().trim()
+                    .split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                if (attempts.size >= 2) return true
+            }
+        } catch (ignored: Throwable) {
+        }
+        return false
+    }
+
+    private fun markBootAttempt() {
+        try {
+            val bootFile = java.io.File(cacheDir, "boot_marks.txt")
+            if (!bootFile.exists()) bootFile.writeText("")
+            bootFile.appendText(System.currentTimeMillis().toString() + "\n")
+            // Keep the marker from growing unbounded.
+            val lines = bootFile.readText().trim()
+                .split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+            if (lines.size > 6) {
+                bootFile.writeText(lines.takeLast(6).joinToString("\n") + "\n")
+            }
+        } catch (ignored: Throwable) {
+        }
+    }
+
+    /// Writes every uncaught Java exception to the app cache + files dirs so
+    /// the CrashReportActivity can surface it on the next launch.
     private fun installCrashLogger() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -38,12 +79,46 @@ class MainActivity : FlutterActivity() {
                 val stamp = java.text.SimpleDateFormat(
                     "yyyy-MM-dd HH:mm:ss", java.util.Locale.US
                 ).format(java.util.Date())
-                val file = java.io.File(cacheDir, "private_agent_native_crash.txt")
-                file.appendText("[$stamp]\n$text\n---\n")
+                val extra = buildString {
+                    append("[$stamp]\n$text\n")
+                    append(captureLogTail())
+                    append("---\n")
+                }
+                for (dir in listOf(cacheDir, filesDir)) {
+                    try {
+                        val file = java.io.File(dir, "private_agent_native_crash.txt")
+                        file.appendText(extra)
+                    } catch (ignored: Throwable) {
+                    }
+                }
             } catch (ignored: Throwable) {
             }
             // Let the system default handler finish the job (show the dialog and kill the process).
             previous?.uncaughtException(thread, throwable)
+        }
+    }
+
+    /// Best-effort tail of this app's own logs (includes engine FATAL lines).
+    private fun captureLogTail(): String {
+        return try {
+            val process = java.lang.ProcessBuilder(
+                "logcat", "-d", "-t", "400",
+                "PrivateAgentCrash:*", "Flutter:*", "AndroidRuntime:E", "libc:F", "DEBUG:F", "*:S"
+            ).redirectErrorStream(true).start()
+            val reader = java.io.BufferedReader(
+                java.io.InputStreamReader(process.inputStream)
+            )
+            val out = StringBuilder()
+            val deadline = System.currentTimeMillis() + 2000
+            while (System.currentTimeMillis() < deadline) {
+                val line = reader.readLine() ?: break
+                out.append(line).append('\n')
+                if (out.length > 20000) break
+            }
+            try { process.destroy() } catch (_: Throwable) {}
+            out.toString()
+        } catch (ignored: Throwable) {
+            ""
         }
     }
 
